@@ -1,0 +1,35 @@
+@page "/budget3/{DefaultCustomerFinalId:int?}/{DefaultArticleFinalId:int?}"
+
+@using ORAGO_CC_Planning.Models
+@using ORAGO_CC_Planning.Shared.Components3
+
+<PageTitle>Budget</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="row">
+            <div class="col-md-3 p-2">
+                <CurrentBudgetInfo YearlyLockChanged="@NewYearlyLockSupplied"/>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="row p-3">
+            <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code
+{
+    [Parameter]
+    public int? DefaultCustomerFinalId { get; set; }
+    [Parameter]
+    public int? DefaultArticleFinalId { get; set; }
+    private YearlyLock? suppliedYearlyLock;
+    private void NewYearlyLockSupplied(YearlyLock ReceivedYearlyLock)
+    {
+        suppliedYearlyLock = new();
+        if (ReceivedYearlyLock.Id > 0) suppliedYearlyLock = ReceivedYearlyLock;
+    }
+}

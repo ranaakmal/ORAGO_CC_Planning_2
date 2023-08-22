@@ -1,0 +1,31 @@
+@page "/customerdata"
+
+<PageTitle>Customers</PageTitle>
+
+<AuthorizeView Roles = "Super user">
+    <Authorized>
+        <div class="row">
+            <h4 class="bg-dark bg-gradient text-white p-2 text-center rounded">Customers data</h4>
+        </div>
+        <div class="row">
+            <div class="col p-3">
+                <CustomerUploader @bind-NewAddedIds="SuppliedCustomersIds" />
+            </div>
+        </div>
+        <br />
+        <div class="row p-3">
+            <div class="col">
+                <CustomersGrid @ref="CustomersGridInstance" InterestingCustomerIds="@SuppliedCustomersIds"/>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code{
+
+    private List<int>? SuppliedCustomersIds;
+    private CustomersGrid? CustomersGridInstance;
+}

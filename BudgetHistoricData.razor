@@ -1,0 +1,319 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject IArticleFinalRepository ArticleService
+@inject ICurrencyRepository CurrencyService
+@inject ICustomerFinalRepository CustomerService
+@inject IExchangeRateRepository ExchangeRateService
+@inject ITransactionRepository TransactionService
+@inject IBudgetEntryRepository BudgetEntryService
+@inject IYearlyLockRepository YearlyLockService
+@inject IBudgetCurrencyRepository BudgetCurrencyService
+@inject IVolumeTemplateRepository VolumeTemplateService
+@inject IEntityLocalCurrencyRepository EntityLocalCurrencyService
+
+<div class="row">
+    <div class="col">
+        <div class="bg-dark bg-gradient text-white p-2 text-center rounded">Actual / historic data</div>
+        <br />
+        <div class="row text-center">
+            <div class="col-4">
+                <SfButton CssClass="e-primary" OnClick="@(() => Task.Run(ActualDataYearDecrement))" IconCss="e-icons e-chevron-left"></SfButton>
+            </div>                    
+            <div class="col-4">
+                @* <SfTextBox @OnChange="@(() => Task.Run(PopulateActualData))"></SfTextBox> *@
+                <p class="lead text-center" onchange="@(() => Task.Run(PopulateActualDataAsync))">@actualDataYear</p>
+            </div>                    
+            <div class="col-4">
+                <SfButton CssClass="e-primary" OnClick="@(() => Task.Run(ActualDataYearIncrement))" IconCss="e-icons e-chevron-right"></SfButton>
+            </div>
+        </div>
+        <br />
+        @if ((SuppliedTransaction is not null))
+        {
+            <em class="text-info text-center">Loading data...</em>
+        }
+        else
+        {
+            @if (TransactionService.ListNotFound)
+            {
+                <em class="text-danger text-center">No Budget period found in database</em>
+            }
+            else
+            {
+                <SfGrid id="budgetDataGrid" DataSource="@actualDataEntries" TValue="ActualDataEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                    <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="false" 
+                        Mode="EditMode.Normal">
+                    </GridEditSettings>
+                    <GridColumns>
+                        <GridColumn Field=@nameof(ActualDataEntry.DurationNr)
+                            ValidationRules="@(new ValidationRules{ Required=true})"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Visible="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.YearName) HeaderText="Year"
+                            ValidationRules="@(new ValidationRules{ Required=true})"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.MonthName) HeaderText="Month"
+                            ValidationRules="@(new ValidationRules{ Required=true})"
+                            Width="auto" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.NetPriceLC) Format="N2" HeaderText="Price LC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.SurchargeLC) Format="N2" HeaderText="Surcharge LC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.TotalPriceLC) Format="N2" HeaderText="Net price LC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.NetPriceDC) Format="N2" HeaderText="Price DC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.SurchargeDC) Format="N2" HeaderText="Surcharge DC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.TotalPriceDC) Format="N2" HeaderText="Net price DC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.Quantity) Format="N0" HeaderText="Qty."
+                            ValidationRules="@(new ValidationRules{ Required=true})"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.SalesLC) Format="N0" HeaderText="Sales LC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(ActualDataEntry.SalesDC) Format="N0" HeaderText="Sales DC"
+                            ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                            Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                        </GridColumn>
+                    </GridColumns>
+                    <GridAggregates>
+                        <GridAggregate>
+                            <GridAggregateColumns>
+                                <GridAggregateColumn Field=@nameof(ActualDataEntry.Quantity) Type="AggregateType.Sum" Format="N0">
+                                    <FooterTemplate Context="meraActualData">
+                                        @{
+                                            var aggregate = (meraActualData as AggregateTemplateContext);
+                                            <div>
+                                                @if (aggregate is not null)
+                                                {
+                                                    <p>@aggregate.Sum</p>
+                                                }
+                                            </div>
+                                        }
+                                    </FooterTemplate>
+                                </GridAggregateColumn>
+                                <GridAggregateColumn Field=@nameof(ActualDataEntry.SalesLC) Type="AggregateType.Sum" Format="N0">
+                                    <FooterTemplate Context="meraActualData">
+                                        @{
+                                            var aggregate = (meraActualData as AggregateTemplateContext);
+                                            <div>
+                                                @if (aggregate is not null)
+                                                {
+                                                    <p>@aggregate.Sum</p>
+                                                }
+                                            </div>
+                                        }
+                                    </FooterTemplate>
+                                </GridAggregateColumn>
+                                <GridAggregateColumn Field=@nameof(ActualDataEntry.SalesDC) Type="AggregateType.Sum" Format="N0">
+                                    <FooterTemplate Context="meraActualData">
+                                        @{
+                                            var aggregate = (meraActualData as AggregateTemplateContext);
+                                            <div>
+                                                @if (aggregate is not null)
+                                                {
+                                                    <p>@aggregate.Sum</p>
+                                                }
+                                            </div>
+                                        }
+                                    </FooterTemplate>
+                                </GridAggregateColumn>
+                            </GridAggregateColumns>
+                        </GridAggregate>
+                    </GridAggregates>
+                </SfGrid>
+            }
+        }
+    </div>
+</div>
+@code 
+{
+    [Parameter] 
+    public Transaction? SuppliedTransaction { get; set;}
+    private int budgetStartYear {get; set; } = DateTime.Now.Year + 1;
+    private int actualDataYear { get; set; } = DateTime.Now.Year - 1;
+    private List<CustomerFinal>? customers;
+    private CustomerFinal? customer;
+    private int customerId;
+    private List<ArticleFinal>? articles;
+    private ArticleFinal? article;
+    private List<ActualDataEntry>? actualDataEntries;
+    private List<BudgetEntry>? budgetEntries;
+    private BudgetEntry? budgetEntry;
+    private int budgetEntryId;
+    private List<YearlyLock>? yearlyLocks;
+    private int yearlyLockId;
+    private YearlyLock? yearlyLock;
+    private BudgetCurrency? budgetCurrency;
+    private List<EntityLocalCurrency>? entityLocalCurrencies;
+    private List<Currency>? currencies;
+    private string displayCurrency = "Document currency";
+    public List<VolumeTemplate>? volumeTemplates;
+    private bool ShowDocumentValues
+    {
+        get
+        {
+            if (budgetCurrency is not null)
+            {
+                return displayCurrency == "Document currency";
+            }
+            return false;
+        }
+    }
+    private bool ShowLocalValues
+    {
+        get
+        {
+            if (budgetCurrency is not null)
+            {
+                return displayCurrency == "Local currency";
+            }
+            return false;
+        }
+    }
+
+    public class ActualDataEntry
+    {
+        public ActualDataEntry(int _yearName, int _durationNr)
+        {
+            this.DurationNr = _durationNr;
+            if (this.DurationNr > 24)
+            {
+                this.MonthName = DateTime.Parse("2000, " + (this.DurationNr - 24).ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr - 24;
+                this.YearName = _yearName + 2;
+            }
+            else if (this.DurationNr > 12)
+            {
+                this.MonthName = DateTime.Parse("2000, " + (this.DurationNr - 12).ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr - 12;
+                this.YearName = _yearName + 1;
+            }
+            else
+            {
+                this.MonthName = DateTime.Parse("2000, " + this.DurationNr.ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr;
+                this.YearName = _yearName;
+            }
+        }
+        public int DurationNr { get; set; }
+        public int MonthNr { get; set; }
+        public string? MonthName { get; set; }
+        public int YearName { get; set; }
+        public double Quantity { get; set; }
+        public double SalesLC { get; set; }
+        public double SurchargeLC { get; set; }
+        public double TotalPriceLC
+        {
+            get
+            {
+                if (this.Quantity != 0) return SalesLC / Quantity;
+                return 0;
+            }
+            set { }
+        }
+        public double NetPriceLC
+        {
+            get
+            {
+                return this.TotalPriceLC - this.SurchargeLC;
+            }
+            set { }
+        }
+        public double SalesDC { get; set; }
+        public double SurchargeDC { get; set; }
+        public double TotalPriceDC
+        {
+            get
+            {
+                if (this.Quantity != 0) return SalesDC / Quantity;
+                return 0;
+            }
+            set { }
+        }
+        public double NetPriceDC
+        {
+            get
+            {
+                return this.TotalPriceLC - this.SurchargeLC;
+            }
+            set { }
+        }
+    } 
+    private List<ArticleFinal>? userArticles;
+    protected override async Task OnInitializedAsync()
+    {
+        customers = await CustomerService!.GetAllAsync();
+        customer = await CustomerService.GetByIdAsync(customerId);
+        articles = await ArticleService!.GetAllAsync();
+        userArticles = await ArticleService.GetAllAsync();
+        currencies = await CurrencyService!.GetAllAsync();
+        volumeTemplates = await VolumeTemplateService!.GetAllAsync();
+        entityLocalCurrencies = await EntityLocalCurrencyService!.GetAllAsync();
+        budgetEntries = await BudgetEntryService!.GetAllAsync();
+        budgetEntry = await BudgetEntryService!.GetByIdAsync(budgetEntryId);     
+    }
+    private async Task ActualDataYearDecrement()
+    {
+        actualDataYear--;
+        actualDataEntries = new();
+        yearlyLocks = await YearlyLockService!.GetByYearAsync(budgetStartYear);
+        await PopulateActualDataAsync();
+    }
+    private async Task ActualDataYearIncrement()
+    {
+        actualDataYear++;
+        actualDataEntries = new();
+        await PopulateActualDataAsync();
+    }
+    private async Task PopulateActualDataAsync()
+    {
+        actualDataEntries = new();
+        if ((customer is not null) && (article is not null) && (customer.BpCode != "") && (article.ItemNo != "") && (customer.BpCode is not null) && (article.ItemNo is not null))
+        {
+            for (int actualDataGenerator = 1; actualDataGenerator <= 12; actualDataGenerator++)
+            {
+                ActualDataEntry actualDataEntry = new ActualDataEntry(actualDataYear, actualDataGenerator);
+                var itsTransactions = await TransactionService!.GetForActualDataAsync(customer.BpCode, article.ItemNo, actualDataEntry.MonthNr, actualDataEntry.YearName);
+                if (itsTransactions is not null)
+                {
+                    actualDataEntry.Quantity = itsTransactions.Sum(t => t.Quantity);
+                    actualDataEntry.SalesLC = itsTransactions.Sum(t => t.SalesLc + t.SurchargeLc);
+                    actualDataEntry.SalesDC = itsTransactions.Sum(t => t.SalesDc + t.SurchargeDc);
+                    if (actualDataEntry.Quantity != 0)
+                    {
+                        actualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / actualDataEntry.Quantity;
+                        actualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / actualDataEntry.Quantity;
+                    }
+                    else
+                    {
+                        actualDataEntry.SurchargeLC = 0;
+                        actualDataEntry.SurchargeDC = 0;
+                    }
+                }
+                actualDataEntries.Add(actualDataEntry);
+            }
+        }
+    } 
+}

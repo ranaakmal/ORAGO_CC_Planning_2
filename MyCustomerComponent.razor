@@ -1,0 +1,302 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+@using Syncfusion.Blazor.Spinner
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject IYearlyLockRepository YearlyLockService
+@inject IBudgetEntryRepository BudgetEntryService
+@inject IArticleFinalRepository ArticleService
+@inject ICustomerFinalRepository CustomerService
+@inject IBudgetCurrencyRepository BudgetCurrencyService
+@inject ITransactionRepository TransactionService
+@inject IArticleRepository PendingArticleService
+@inject ICustomerRepository PendingCustomerService
+@inject NavigationManager UriHelper
+<div class="row p-2">
+    <div class="col-3 e-round p-2" style="text-align:center;">
+        <SfCard>
+            <CardHeader><span class="bg-dark bg-gradient text-white p-2 text-center rounded"
+                    style=" width:100%;">My Customers</span>
+            </CardHeader>
+            <CardStacked>
+                <div class="p-2">
+                    @if (CustomerService.ListLoading)
+                    {
+                        <em class="text-info text-center spinner">Loading Customers...</em>
+                    }
+                    else
+                    {
+                        @if (CustomerService.ListNotFound)
+                        {
+                            <em class="text-danger text-center">No customer found in database</em>
+                        }
+                        else
+                        {
+                            <SfSpinner @bind-Visible="@VisibleSpinner">
+                            </SfSpinner>
+                            <SfGrid id="customerGrid" DataSource="@userCustomers" TValue="CustomerFinal" Height="200">
+                                <GridColumns>
+                                    <GridColumn Field=@nameof(Customer.Id) IsPrimaryKey="true"
+                                ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                Visible="false">
+                                    </GridColumn>
+                                    <GridColumn Field=@nameof(Customer.BpName)
+                                ValidationRules="@(new ValidationRules{ Required=true})" Width="auto">
+                                    </GridColumn>
+                                    <GridColumn Field=@nameof(Customer.BpCode)
+                                ValidationRules="@(new ValidationRules{ Required=true})" Width="auto">
+                                    </GridColumn>
+                                </GridColumns>
+                                <GridEvents RowSelected="CustomerSelected" TValue="CustomerFinal"></GridEvents>
+                            </SfGrid>
+                        }
+                    }
+                </div>
+            </CardStacked>
+        </SfCard>
+    </div>
+    <div class="col-4">
+        <div class="row">
+            <div class="col-12 e-round p-2" style="text-align:center;"
+                @onclick="( () => TotalArticlesClicked())">
+                <SfCard>
+                    <CardHeader><span class="bg-dark bg-gradient text-white p-2 text-center rounded"
+                            style=" width:100%;">Total Articles</span>
+                    </CardHeader>
+                    <CardStacked>
+                        <SfSpinner @bind-Visible="@VisibleSpinner">
+                        </SfSpinner>
+                        <div class="p-2">
+                            <h1 class=" text-center">@countTotalArticles</h1>
+                        </div>
+                    </CardStacked>
+                </SfCard>
+            </div>
+        </div>
+        <div class="row p-2">
+            <div class="col-6 e-round p-2" style="text-align:center;"
+                @onclick="( () => CompleteArticlesClicked())">
+                <SfCard>
+                    <CardHeader><span class="bg-dark bg-gradient text-white p-2 text-center rounded"
+                            style=" width:100%;">Completed Articles</span>
+                    </CardHeader>
+                    <CardStacked>
+                        <SfSpinner @bind-Visible="@VisibleSpinner">
+                        </SfSpinner>
+                        <div class="p-2">
+                            <h1 class="text-center">@countCompleteArticles</h1>
+                        </div>
+                    </CardStacked>
+                </SfCard>
+            </div>
+            <div class="col-6 e-round p-2" style="text-align:center;"
+                @onclick="( () => IncompleteArticlesClicked())">
+                <SfCard>
+                    <CardHeader><span class="bg-dark bg-gradient text-white p-2 text-center rounded"
+                            style=" width:100%;">Open Articles</span>
+                    </CardHeader>
+                    <CardStacked>
+                        <SfSpinner @bind-Visible="@VisibleSpinner">
+                        </SfSpinner>
+                        <div class="p-2">
+                            <h1 class="text-center">@countIncompleteAeticles</h1>
+                        </div>
+                    </CardStacked>
+                </SfCard>
+            </div>
+        </div>
+    </div>
+    <div class="col e-round p-2" style="text-align:center;">
+        <SfCard>
+            <CardHeader><span class="bg-dark bg-gradient text-white p-2 text-center rounded"
+                    style="width:100%;">Customer Articles</span>
+            </CardHeader>
+
+            <CardStacked>
+                <div class="p-2 ">
+                    @if (CustomerService.ListLoading)
+                    {
+                        <em class="text-info text-center">Loading customer articles...</em>
+                    }
+                    else
+                    {
+                        @if (CustomerService.ListNotFound)
+                        {
+                            <em class="text-danger text-center">No customer article found in database</em>
+                        }
+                        else
+                        {
+                            <SfSpinner @bind-Visible="@VisibleSpinner">
+                            </SfSpinner>
+                            <SfGrid id="budgetEntryGrid" DataSource="@interestingBudgetEntries" TValue="BudgetEntry"
+                                AllowPaging="true">
+                                <GridPageSettings PageSize="10">
+                                </GridPageSettings>
+                                <GridColumns>
+                                    <GridColumn Field=@nameof(BudgetEntry.Id) IsPrimaryKey="true"
+                                        ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                        Visible="false">
+                                    </GridColumn>
+                                    <GridForeignColumn Field=@nameof(BudgetEntry.ArticleFinalID) ForeignKeyValue="ItemNo"
+                                        HeaderText="Item No" ForeignKeyField="Id"
+                                        ValidationRules="@(new ValidationRules{ Required=true})"
+                                        ForeignDataSource="@userArticles" Width="auto">
+                                    </GridForeignColumn>
+                                    <GridForeignColumn Field=@nameof(BudgetEntry.ArticleFinalID)
+                                        ForeignKeyValue="ItemDescription" HeaderText="Item Description"
+                                        ForeignKeyField="Id" ValidationRules="@(new ValidationRules{ Required=true})"
+                                        ForeignDataSource="@userArticles" Width="auto">
+                                    </GridForeignColumn>
+                                    <GridForeignColumn Field=@nameof(BudgetEntry.CustomerFinalID) ForeignKeyValue="BpName"
+                                        HeaderText="Customer" ForeignKeyField="Id"
+                                        ValidationRules="@(new ValidationRules{ Required=true})"
+                                        ForeignDataSource="@userCustomers" Width="auto">
+                                    </GridForeignColumn>
+                                </GridColumns>
+                                <GridEvents RowSelected="selectRecentBudgetEntries" TValue="BudgetEntry"></GridEvents>
+                            </SfGrid>
+                        }
+                    }
+                </div>
+            </CardStacked>
+        </SfCard>
+    </div>
+</div>
+@code 
+{
+    private YearlyLock? yearlyLock;
+    private List<YearlyLock>? yearlyLocks;
+    private CustomerFinal? customer;
+    private List<CustomerFinal>? customers;
+    private List<CustomerFinal>? userCustomers;
+    private List<Customer>? pendingCustomers;
+    private Customer? pendingCustomer;
+    private ArticleFinal? article;
+    private ArticleFinal? articleFinal;
+    private List<ArticleFinal>? articles;
+    private List<ArticleFinal>? userArticles;
+    private List<Article>? pendingArtikels;
+    private Article? pendingArtikel;
+    private BudgetCurrency? budgetCurrency;
+    private BudgetEntry? latestBudgetEntry;
+    private List<BudgetEntry>? userBudgetEntries;
+    private List<BudgetEntry>? interestingBudgetEntries;
+    private List<BudgetEntry>? completedBudgetEntries;
+    private List<BudgetEntry>? incompleteBudgetEntries;
+    private List<BudgetEntry>? LatestBudgetEntries;
+    private int budgetStartYear { get; set; } = DateTime.Now.Year + 1;
+    private int countTotalArticles=0;
+    private int countCompleteArticles=0;
+    private int countIncompleteAeticles=0;
+    private bool IsVisible { get; set; } = true;
+    private bool VisibleSpinner { get; set; } = false;
+    private bool IsTaskRunning = false;
+    private bool IsCustomerTaskRunning = false;
+    [Parameter]
+    public YearlyLock? TransmitYearlyLock { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        this.VisibleSpinner = true;
+        await Task.Delay(1000);
+        this.VisibleSpinner = false;
+        //userCustomers = await CustomerService.GetCustomerByLoggedInUser(authenticationStateProvider, true);
+        userArticles = await ArticleService.GetAllAsync();
+        latestBudgetEntry = await BudgetEntryService.GetLatestByLoggedInUser(authenticationStateProvider);
+        LatestBudgetEntries = await BudgetEntryService.GetLatestArticlesByLoggedInUser(authenticationStateProvider);
+        if (latestBudgetEntry is not null) article = await ArticleService.GetByIdAsync(latestBudgetEntry.ArticleFinalID);
+        if (latestBudgetEntry is not null) customer = await CustomerService.GetByIdAsync(latestBudgetEntry.CustomerFinalID);
+        if (article is not null && article.Id != 0 && customer is not null && customer.Id != 0 && TransmitYearlyLock is not null)
+        {
+            budgetCurrency = await BudgetCurrencyService.GetByYearVersionCustomerArticleAsync(System.DateTime.Now.Year + 1, article, customer,
+            TransmitYearlyLock?.Name);
+        }
+        customers = await CustomerService.GetCustomerByLoggedInUser(authenticationStateProvider);
+        userCustomers = await CustomerService.GetCustomerByLoggedInUser(authenticationStateProvider, true);
+        pendingArtikels = await PendingArticleService.GetAllAsync();
+        pendingCustomers = await PendingCustomerService.GetAllAsync();
+        await FetchUserCustomerArticles(userCustomers);
+    }
+    private async Task FetchUserCustomerArticles(List<CustomerFinal> givenCustomers)
+    {
+        userArticles = new();
+        interestingBudgetEntries = new();
+        userBudgetEntries = new();
+        completedBudgetEntries = new();
+        incompleteBudgetEntries = new();
+        countCompleteArticles = 0;
+        countIncompleteAeticles = 0;
+        countTotalArticles = 0;
+        this.VisibleSpinner = true;
+        await Task.Delay(1000);
+        this.VisibleSpinner = false;
+        articles = await ArticleService.GetAllAsync();
+        foreach (CustomerFinal givenCustomer in givenCustomers)
+        {
+            if (!ArticleService!.ListLoading)
+            {
+                if (givenCustomer.BpCode is not null)
+                {
+                    List<String?> articleNames = await TransactionService!.GetArticleNamesByCustomerAsync(givenCustomer.BpCode);
+                    foreach (string? articleName in articleNames)
+                    {
+                        ArticleFinal article = await ArticleService.GetByItemNrAsync(articleName);
+                        if ((article is not null) && (article.Id != 0))
+                        {
+                            userArticles.Add(article);
+                            articles.Add(article);
+                            latestBudgetEntry = await BudgetEntryService.GetLatestByLoggedInUser(authenticationStateProvider);
+                            //LatestBudgetEntries = await BudgetEntryService.GetLatestArticlesByLoggedInUser(authenticationStateProvider);
+                            List<BudgetEntry> itsBudgetEntries = await
+                            BudgetEntryService.GetByYearVersionCustomerArticleForIndexAsync(System.DateTime.Now.Year + 1,
+                            article, givenCustomer, TransmitYearlyLock?.Name);
+                            itsBudgetEntries = itsBudgetEntries.Where(e => e.DurationNumber == 13).ToList();
+                            userBudgetEntries?.AddRange(itsBudgetEntries);
+                            BudgetCurrency itsBudgetCurrency = await BudgetCurrencyService.GetByYearVersionCustomerArticleAsync(System.DateTime.Now.Year + 1,
+                            article, givenCustomer, TransmitYearlyLock?.Name);
+                            if (itsBudgetCurrency!.PlanningComplete)
+                            {
+                                countCompleteArticles++;
+                                completedBudgetEntries.AddRange(itsBudgetEntries);
+                            }
+                            else
+                            {
+                                countIncompleteAeticles++;
+                                incompleteBudgetEntries.AddRange(itsBudgetEntries);
+                            }
+                        }
+                    }
+                    interestingBudgetEntries = userBudgetEntries;
+                    countTotalArticles = userArticles.Count();
+                }
+            }
+        }
+    }
+    protected async Task CustomerSelected(RowSelectEventArgs<CustomerFinal> Args)
+    { 
+        this.VisibleSpinner = true;
+        await Task.Delay(1000);
+        this.VisibleSpinner = false;
+        await FetchUserCustomerArticles(new List<CustomerFinal> { Args.Data });
+    }
+    private void TotalArticlesClicked()
+    {
+        interestingBudgetEntries = userBudgetEntries;
+    }
+    private void CompleteArticlesClicked()
+    {
+        interestingBudgetEntries = completedBudgetEntries;
+    }
+    private void IncompleteArticlesClicked()
+    {
+        interestingBudgetEntries = incompleteBudgetEntries;
+    }
+    private async Task selectRecentBudgetEntries(RowSelectEventArgs<BudgetEntry> Args)
+    {
+        @* article = new();
+        customer = new(); *@
+        article = await ArticleService.GetByIdAsync(Args.Data.ArticleFinalID);
+        customer = await CustomerService.GetByIdAsync(Args.Data.CustomerFinalID);
+        UriHelper.NavigateTo($"budget/{customer?.Id}/{article?.Id}");
+    }
+}

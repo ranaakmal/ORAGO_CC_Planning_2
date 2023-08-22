@@ -1,0 +1,40 @@
+@using ORAGO_CC_Planning.Models
+
+<div class="row p-2">
+    <div class="col bg-info bg-opacity-10 rounded p-2">
+        <SfCard>
+            <CardHeader><b class="text-center">Article</b>
+            </CardHeader>
+            <CardContent EnableSeparator="true">
+                @if (SuppliedArticle is not null && SuppliedArticle.Id != 0)
+                {
+                    <div class="row">
+                        <div class="col-6 border-right">
+                            <div class="row"><div class="col-5"><b>Item No. Ext.: </b></div><div class="col">@SuppliedArticle.ItemNoExternal</div></div>
+                            <div class="row"><div class="col-5"><b>Item desc.: </b></div><div class="col">@SuppliedArticle.ItemDescription</div></div>
+                            <div class="row"><div class="col-5"><b>Drawing No.: </b></div><div class="col">@SuppliedArticle.DrawingNo</div></div>
+                            <div class="row"><div class="col-5"><b>BUoM: </b></div><div class="col">@SuppliedArticle.BUoM</div></div>
+                            <div class="row"><div class="col-5"><b>Weight: </b></div><div class="col">@SuppliedArticle.Weight</div></div>
+                            <div class="row"><div class="col-5"><b>OEM: </b></div><div class="col">@SuppliedArticle.Oem</div></div>
+                            <div class="row"><div class="col-5"><b>Manufacturer: </b></div><div class="col">@SuppliedArticle.Manufacturer</div></div>
+                        </div>
+                        <div class="col-6 border-left">
+                            <div class="row"><div class="col-5"><b>Car type: </b></div><div class="col">@SuppliedArticle.CarType</div></div>
+                            <div class="row"><div class="col-5"><b>B area: </b></div><div class="col">@SuppliedArticle.BusinessArea</div></div>
+                            <div class="row"><div class="col-5"><b>Mat. Grp.: </b></div><div class="col">@SuppliedArticle.Materialgroup</div></div>
+                            <div class="row"><div class="col-5"><b>Prod. cat.: </b></div><div class="col">@SuppliedArticle.Productcategory</div></div>
+                            <div class="row"><div class="col-5"><b>EOP: </b></div><div class="col">@SuppliedArticle.Eop</div></div>
+                            <div class="row"><div class="col-5"><b>SOP: </b></div><div class="col">@SuppliedArticle.Sop</div></div>
+                            <div class="row"><div class="col-5"><b>Yearly Qty.: </b></div><div class="col">@SuppliedArticle.YearlyQuantity</div></div>
+                        </div>
+                    </div>
+                }
+            </CardContent>
+        </SfCard>
+    </div>
+</div>
+@code 
+{
+    [Parameter] 
+    public ArticleFinal? SuppliedArticle { get; set;} 
+}

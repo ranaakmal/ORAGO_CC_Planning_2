@@ -1,0 +1,34 @@
+﻿<AuthorizeView>
+    <Authorized>
+        <div class="row">
+        <div class="p-4 text-center">
+            @* <a href="Identity/Account/Manage" style="color: black; font-size:22px;">@context.User.Identity?.Name</a><br /> *@
+            
+            <h6 style="color: black; margin-top:20px;">@Environment.UserName</h6><br />
+        </div><br />
+        </div>
+        <br>
+        <div class="row">
+            <div style="margin-top: 30px; margin-left:-110px;">
+                @if(@context.User.IsInRole("Super user"))
+                { 
+                <a href="" style="color: black; font-size:18px;">Super user</a><br />
+                }
+                else
+                {
+                <a href="" style="color: black; font-size:18px;">User</a><br />
+                }
+            </div>
+        </div>
+        @* <div class="mt-4 text-center">
+            <form method="post" action="Identity/Account/LogOut">
+                <button type="submit" class="nav-link btn btn-link">Log out</button>
+            </form>
+        </div> *@
+    </Authorized>
+    <NotAuthorized>
+        @* <a href="Identity/Account/Register">Register</a> *@
+            @* <a href="/login">Log in</a> *@
+            <h3>No user Login</h3>
+    </NotAuthorized>
+</AuthorizeView>

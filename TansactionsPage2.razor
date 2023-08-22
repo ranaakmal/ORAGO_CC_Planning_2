@@ -1,0 +1,59 @@
+@page "/transactionspage2"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>Transactions</PageTitle>
+
+<AuthorizeView Roles="Super user">
+    <Authorized>
+        <div class="row">
+            <h4 class="bg-dark bg-gradient text-white p-2 text-center rounded">Transactions</h4>
+        </div>
+        <div class="row p-3">
+            <div class="col p-3">
+                @* <MonthlyTransactionsLocker FilterDurationChanged="FilterGridByDuration" @bind-MyFilterDuration="SuppliedFilterDuration"/> *@
+                <MonthlyTransactionsLocker FilterDurationChanged="FilterGridByDuration" />
+            </div>
+        </div>
+        <div class="row p-3">
+            <div class="col p-3">
+                <SfButton @onclick="UploaderVisibility" CssClass="e-primary">Upload transaction</SfButton>
+            </div>
+        </div>
+        <SfDialog @bind-Visible="@UploaderModalVisible" ShowCloseIcon="true" Width="500px">
+            <DialogTemplates>
+                <Content>
+                    <TransactionUploader @bind-NewAddedIds="SuppliedTransactionIds" />
+                </Content>
+            </DialogTemplates>
+        </SfDialog>
+        <div class="row p-3">
+            <div class="col">
+                <TransactionsGrid @ref="TransactionsGridInstance" InterestingTransactionIds="@SuppliedTransactionIds"/>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code
+{
+    private bool UploaderModalVisible;
+    private TransactionsGrid? TransactionsGridInstance;
+    private List<int>? SuppliedTransactionIds;
+    private MonthlyTransactionsLocker.FilterDuration? SuppliedFilterDuration;
+    private async Task FilterGridByDuration(MonthlyTransactionsLocker.FilterDuration requestedFilterDuration)
+    {
+        if (TransactionsGridInstance is not null)
+        {
+            await TransactionsGridInstance.FilterByDuration(requestedFilterDuration.DurationFilterYear, requestedFilterDuration.DurationFilterMonth);
+        }
+    }
+    private void UploaderVisibility()
+    {
+        UploaderModalVisible = !UploaderModalVisible;
+    }
+}

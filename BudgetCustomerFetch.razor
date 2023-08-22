@@ -1,0 +1,32 @@
+@using ORAGO_CC_Planning.Models
+
+<div class="row p-2">
+    <div class="col bg-info bg-opacity-10 rounded p-2">
+          <SfCard>
+            <CardHeader><b class="text-center">Customer</b>
+            </CardHeader>
+            <CardContent EnableSeparator="true">
+                @if (SuppliedCustomer is not null && SuppliedCustomer.Id != 0 )
+                {
+                    <div class="row">
+                        <div class="col-6 border-right">
+                            <div class="row"><div class="col-5"><b>Id: </b></div><div class="col">@SuppliedCustomer.Id</div></div>
+                            <div class="row"><div class="col-5"><b>Entity: </b></div><div class="col">@SuppliedCustomer.Entity</div></div>
+                            <div class="row"><div class="col-5"><b>BP Code: </b></div><div class="col">@SuppliedCustomer.BpCode</div></div>
+                        </div>
+                        <div class="col-6 border-right">
+                            <div class="row"><div class="col-5"><b>BP Name: </b></div><div class="col">@SuppliedCustomer.BpName</div></div>
+                            <div class="row"><div class="col-5"><b>Key customer: </b></div><div class="col">@SuppliedCustomer.KeyCustomer</div></div>
+                            <div class="row"><div class="col-5"><b>Incoterm: </b></div><div class="col">@SuppliedCustomer.Incoterm</div></div>
+                        </div>
+                    </div>
+                }
+            </CardContent>
+        </SfCard>
+    </div>
+</div>
+@code 
+{
+    [Parameter] 
+    public CustomerFinal? SuppliedCustomer { get; set;} 
+}

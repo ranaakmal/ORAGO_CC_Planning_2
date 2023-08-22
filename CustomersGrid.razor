@@ -1,0 +1,319 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@using System.IO
+@using Syncfusion.XlsIO
+
+@inject UserManager<IdentityUser> _UserManager
+@inject RoleManager<IdentityRole> _RoleManager
+@inject IWebHostEnvironment Environment
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject ICustomerFinalRepository CustomerService
+
+<div class="row">
+    <div class="p-2">
+        @if (CustomerService.ListLoading)
+        {
+            <em class="text-info text-center">Loading Customers...</em>
+        }
+        else
+        {
+            @if (CustomerService.ListNotFound)
+            {
+                <em class="text-danger text-center">No Customers found in database</em>
+            }
+            @* else if (registeredUsers is null)
+            {
+                <em class="text-info text-center">Loading users list...</em>
+            } *@
+            else
+            {
+                if (InterestingCustomerIds is not null && InterestingCustomerIds.Count>0)
+                {
+                    <SfButton IsPrimary="true" OnClick="RefreshCustomers">Refresh cutomers data</SfButton>
+                    <SfButton IsPrimary="true" OnClick="FilterNewEntries">Toggle filter new customers</SfButton>
+                    <SfButton IsPrimary="false" OnClick="DeleteRecentEntries">Delete recently added customers</SfButton>
+                    <br />
+                }
+@*                <SfButton IsPrimary="true" style="margin-bottom: 5px; margin-left:88%;" OnClick="OpenDialog">Batch Assign Users</SfButton>
+*@                       
+                <SfGrid @ref="CustomersGridVisual" id="customersGrid" ShowColumnChooser="true" DataSource="@Customers" TValue="CustomerFinal" EnablePersistence="true" 
+                    Toolbar="@(new List<string>() { "Add", "Edit","Delete", "Cancel", "Update", "ColumnChooser" })"
+                    AllowPaging="true" AllowFiltering="true" AllowResizing="true">
+                    <GridPageSettings PageSize="100" ></GridPageSettings>
+                    
+                    <GridEditSettings AllowAdding="true"  AllowDeleting="true" AllowEditing="true"
+                        Mode="EditMode.Normal">
+                    </GridEditSettings>
+                    <GridFilterSettings Type ="Syncfusion.Blazor.Grids.FilterType.Excel"></GridFilterSettings>
+                    
+                    <GridColumns>
+                        <GridColumn Field=@nameof(Customer.Id) IsPrimaryKey="true"
+                            ValidationRules="@(new ValidationRules{ Required=true, Number=true})" Visible="false">
+                        </GridColumn>                  
+                        <GridColumn Field=@nameof(Customer.Entity) Width="auto">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(Customer.BpCode) Width="auto">
+                        </GridColumn>                   
+                        <GridColumn Field=@nameof(Customer.BpName) Width="auto">
+                        </GridColumn>
+                        <GridColumn Field=@nameof(Customer.KeyCustomer) Width="auto" DefaultValue=0>
+                        </GridColumn> 
+                        <GridColumn Field=@nameof(Customer.Incoterm) Width="auto" DefaultValue=0>
+                        </GridColumn> 
+                        <GridForeignColumn Field=@nameof(Customer.AssignedUser)
+                            ForeignKeyValue="UserName" ForeignKeyField="Id"
+                            ValidationRules="@(new ValidationRules{ Required=false})"
+                            ForeignDataSource="@ColUsers" Width="auto">
+                        </GridForeignColumn>
+                    </GridColumns>
+                    <GridEvents OnActionBegin="CustomerActionBeginHandler" OnActionComplete="CustomerActionCompleteHandler" TValue="CustomerFinal"></GridEvents>
+                </SfGrid>
+            }
+        }
+    </div>
+</div>  
+@*<div class="row">
+    <SfDialog Width="40%" Height="70%" IsModal="true" ShowCloseIcon="true"  @bind-Visible="@IsVisible">
+        <DialogTemplates>
+                <Header> <div>Batch Assign User</div> </Header>
+                <Content>
+                    <div class="row">
+                        <div class="col">
+                            <SfCard>
+                                <CardContent>
+                                    <label for="fileUploader">Select excel file to upload:</label>
+                                    <SfUploader id="fileUploader" AllowMultiple="false" AutoUpload="false"
+                                        AllowedExtensions=".xls, .xlsx, .xlsm">
+                                        <UploaderEvents ValueChange="OnChangeUpload" OnRemove="RemoveUploadedFile">
+                                        </UploaderEvents>
+                                    </SfUploader>
+                                    <br>
+                                    <SfProgressBar Type="ProgressType.Linear" IsActive="true" Value="@FileReadProgress"
+                                        Minimum="0" Maximum="3" IsStriped="false" CornerRadius="CornerType.Square">
+                                    </SfProgressBar>
+                                </CardContent>
+                                <CardFooter>
+                                    <p class="@UploaderMessageClass">@UploaderMessage</p>
+                                </CardFooter>
+                            </SfCard>
+                            <SfButton IsPrimary="true" style="margin-left: 88%; margin-top:5px;"  OnClick="CloseDialog">Ok</SfButton>
+                        </div>
+                    </div>
+                </Content>
+        </DialogTemplates>
+    </SfDialog>
+</div>*@
+
+@code
+{
+    [Parameter] public List<int>? InterestingCustomerIds { get; set; }
+    public SfGrid<CustomerFinal>? CustomersGridVisual { get; set; }
+    private List<CustomerFinal>? Customers;
+    private bool NewEntriesFiltered;
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    private bool IsVisible { get; set; } = false;
+    private string UploaderMessageClass = new string("text-primary");
+    private string UploaderMessage = new string("Waiting for file to upload.");
+    private int FileReadProgress = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Customers = await Task.Run(() => CustomerService.GetAllAsync());
+        NewEntriesFiltered = false;
+        GetUsers();
+    }
+     private async Task CustomerActionBeginHandler(ActionEventArgs<CustomerFinal> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (Args.Action == "Add")
+            {
+                await Args.Data.SetCreateInfo(authenticationStateProvider);
+                await CustomerService.AddEntityAsync(Args.Data);
+            }
+            else
+            {
+                await Args.Data.SetModifyInfo(authenticationStateProvider);
+                await CustomerService.UpdateEntityAsync(Args.Data);
+            }
+            
+        }
+        else  if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Delete))
+        {
+            await CustomerService.DeleteEntityAsync(Args.Data.Id);
+        }
+    }
+    private async Task CustomerActionCompleteHandler(ActionEventArgs<CustomerFinal> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            await CustomerService.GetAllAsync();
+        }
+    }
+    public async Task DeleteCustomer(ActionEventArgs<Customer> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Delete))
+        {
+            await CustomerService.DeleteEntityAsync(Args.Data.Id);
+        }
+    }
+    public async Task FilterNewEntries()
+    {
+        if (CustomersGridVisual is not null && InterestingCustomerIds is not null)
+        {
+            await CustomersGridVisual.ClearFilteringAsync();
+            if (!NewEntriesFiltered) 
+            {
+                await CustomersGridVisual.FilterByColumn("Id", "equal", InterestingCustomerIds, "or");
+            }
+            NewEntriesFiltered = !NewEntriesFiltered;
+        }
+    }
+    public async Task DeleteRecentEntries()
+    {
+        if (InterestingCustomerIds is not null)
+        {
+            foreach (int rejectedEntryID in InterestingCustomerIds)
+            {
+                await CustomerService.DeleteEntityAsync(rejectedEntryID);
+            }
+        }  
+    }
+    public async Task RefreshCustomers()
+    {
+        Customers = await CustomerService.GetAllAsync();
+    }
+    @* public async Task FilterByDuration(int filterYear, int filterMonth)
+    {
+        if (CustomersGridVisual is not null)
+        {
+            await CustomersGridVisual.ClearFilteringAsync();
+            await CustomersGridVisual.FilterByColumn("Year", "equal", filterYear);
+            await CustomersGridVisual.FilterByColumn("Month", "equal", filterMonth);
+        }
+    } *@
+    private void GetUsers()
+    {
+        ColUsers = new List<IdentityUser>();
+        var user = _UserManager.Users.Select(x => new IdentityUser
+        {
+            Id = x.Id,
+            UserName = x.UserName,
+            Email = x.Email,
+        });
+        foreach (var item in user)
+        {
+            ColUsers.Add(item);
+        }
+    }
+    private void OpenDialog()
+    {
+        this.IsVisible = true;
+    }
+    private void RemoveUploadedFile(RemovingEventArgs args)
+    {
+        foreach (var removeFile in args.FilesData)
+        {
+            if (File.Exists(Path.Combine(Environment.ContentRootPath, Environment.EnvironmentName, "uploadedAssignUser",
+            removeFile.Name)))
+            {
+                File.Delete(Path.Combine(Environment.ContentRootPath, Environment.EnvironmentName, "uploadedAssignUser",
+                removeFile.Name));
+            }
+        }
+        UploaderMessageClass = "text-primary";
+        UploaderMessage = "File deleted from server. Waiting for next customer file to upload.";
+        FileReadProgress = 0;
+    }
+    private async Task OnChangeUpload(UploadChangeEventArgs args)
+    {
+       foreach (var file in args.Files)
+        {
+            var path = Path.Combine(Environment.ContentRootPath, Environment.EnvironmentName, "uploadedAssignUser", file.FileInfo.Name);
+            FileStream filestream = new FileStream(path, FileMode.Create, FileAccess.Write);
+            file.Stream.WriteTo(filestream);
+            filestream.Close();
+
+            UploaderMessageClass = "text-info";
+            UploaderMessage = "File uploaded. Reading contents of file.";
+
+            FileReadProgress = 1;
+            StateHasChanged();
+            try
+            {
+                filestream = new FileStream(path, FileMode.Open);
+                ExcelEngine excelEngine = new ExcelEngine();
+                IWorkbook workbook = excelEngine.Excel.Workbooks.Open(filestream);
+                IWorksheet worksheet = workbook.Worksheets["Kunden"];
+                FileReadProgress = 1;
+                UploaderMessageClass = "text-info";
+                UploaderMessage = "File reading complete. Now adding customer.";
+                
+                Customers = await CustomerService.GetAllAsync();
+                int CustomerIndex = 1;
+                int rowIndex = 1;
+                FileReadProgress = 2;
+                if (worksheet is null)
+                {
+                    UploaderMessage = "Kunden sheet not found in workbook.";
+                    UploaderMessageClass = "text-danger";
+                }
+                else 
+                {
+                    while (worksheet.Range["C" + (rowIndex+1)].Text != null)
+                    {
+                        if ( (worksheet.Range["C" + (rowIndex+1)].Text != "CustNo/BP Number") && (worksheet.Range["A" + (rowIndex + 1)].Value != null))
+                        {
+                            worksheet.EnableSheetCalculations();
+                            var CustomerRow = worksheet.Rows[rowIndex];
+                            var calculateCustomer = new CustomerFinal()
+                            {
+                                BpCode = CustomerRow.Cells[0].Text,
+                                BpName = CustomerRow.Cells[1].Text,
+                                AssignedUser = CustomerRow.Cells[6].Text,
+                            };  
+                            var IsUser = _UserManager.Users!.Where(b=> b.UserName == calculateCustomer.AssignedUser).FirstOrDefault();
+                            var IsPresent = Customers!.Where(a =>  a.BpCode == calculateCustomer.BpCode).FirstOrDefault(); 
+                            if(IsPresent is not null && IsUser is not null)
+                            {
+                                calculateCustomer.AssignedUser = IsUser.Id;
+                                calculateCustomer.BpCode = IsPresent.BpCode;
+                                await calculateCustomer.SetModifyInfo(authenticationStateProvider);
+                                await CustomerService.UpdateEntityAsync(calculateCustomer);
+                                UploaderMessageClass = "text-info";
+                                UploaderMessage = "Customers " + CustomerIndex + " are Updated.";
+                                    
+                                CustomerIndex += 1;
+                                StateHasChanged();
+                            }
+                            worksheet.DisableSheetCalculations();  
+                        }
+                        rowIndex += 1;
+                    }
+                }
+                FileReadProgress = 3;
+                workbook.Close(true);
+                excelEngine.Dispose();
+                filestream.Close();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                UploaderMessageClass = "text-danger";
+                UploaderMessage = "Error occured while reading file: " + ex.Message + " At: " + ex.Source; 
+                StateHasChanged();
+                @* return false; *@
+            }
+        }  
+    }
+    private async Task CloseDialog()
+    {
+        this.IsVisible = false;
+        Customers = await CustomerService.GetAllAsync();
+    }
+}

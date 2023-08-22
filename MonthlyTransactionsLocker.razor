@@ -1,0 +1,226 @@
+@using System
+
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject ITransactionMonthlyLockRepository TransactionMonthlyLockService
+@inject ITransactionRepository TransactionService
+
+<SfCard>
+<div class="row">
+    <div class="col-md-2  bg-info bg-opacity-10 p-3 rounded">
+        <br />
+        <div class="row text-center">
+            <span class="oi oi-caret-top text-info" style="font-size: 28px;" onclick="@(() => YearChanged(true))"></span>
+        </div>
+        <div class="row text-center">
+            <h2>@InterestingYear</h2>
+        </div>
+        <div class="row text-center">
+            <span class="oi oi-caret-bottom text-info" style="font-size: 28px;" onclick="@(() => YearChanged(false))"></span>
+        </div>
+    </div>
+    <div class="col p-3 bg-opacity-10 rounded">
+        <div class="row">
+            @for (int monthNumber = 1; monthNumber <= 6; monthNumber++)
+            {
+                <div class="col p-2 border-bottom text-center">
+                    <p>
+                        @if (TransactionMonthlyLocks is not null && TransactionMonthlyLocks.Find(L => L.LockMonth == monthNumber) is not null)
+                        {
+                            if (TransactionMonthlyLocks!.Find(L => L.LockMonth == monthNumber)!.IsLocked)
+                            {
+                                int myMonthNumber = monthNumber;
+                                DateTime myDate = new DateTime(2020, myMonthNumber, 1);
+                                <p class="oi oi-lock-locked text-success text-center p-2" onclick="@(() => ToggleMonthlyLock(myMonthNumber))"></p> @myDate.ToString("MMM")
+                                <div>
+                                    <SfButton IsPrimary="true" CssClass="e-primary e-outline" @onclick="@(() => FilterByDuration(InterestingYear, myMonthNumber))">Filter</SfButton>
+                                </div>
+                                if (!TransactionService.SalesLcSumming && MonthlySalesLc is not null)
+                                {
+                                    <p>Sales LC: @MonthlySalesLc[myMonthNumber -1].ToString("N2")</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                                if (!TransactionService.EntitiesCounting && CountMonthlyEntity is not null)
+                                {
+                                    <p>Entities count: @CountMonthlyEntity[myMonthNumber - 1].ToString()</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                            }
+                            else
+                            {
+                                int myMonthNumber = monthNumber;
+                                DateTime myDate = new DateTime(2020, myMonthNumber, 1);
+                                <p class="oi oi-lock-unlocked text-danger text-center p-2" onclick="@(() => ToggleMonthlyLock(myMonthNumber))"></p> @myDate.ToString("MMM")
+                                <div>
+                                    <SfButton IsPrimary="true" CssClass="e-primary e-outline" @onclick="@(() => FilterByDuration(InterestingYear, myMonthNumber))">Filter</SfButton>
+                                </div>
+                                if (!TransactionService.SalesLcSumming && MonthlySalesLc is not null)
+                                {
+                                    <p>Sales LC: @MonthlySalesLc[myMonthNumber -1].ToString("N2")</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                                if (!TransactionService.EntitiesCounting && CountMonthlyEntity is not null)
+                                {
+                                    <p>Entities count: @CountMonthlyEntity[myMonthNumber - 1].ToString()</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                            }
+                        }
+                    </p>
+                </div>
+            }
+        </div>
+        <div class="row">
+            @for (int monthNumber = 7; monthNumber <= 12; monthNumber++)
+            {
+                <div class="col p-2 border-bottom text-center">
+                    <p>
+                        @if (TransactionMonthlyLocks is not null && TransactionMonthlyLocks.Find(L => L.LockMonth == monthNumber) is not null)
+                        {
+                            if (TransactionMonthlyLocks!.Find(L => L.LockMonth == monthNumber)!.IsLocked)
+                            {
+                                int myMonthNumber = monthNumber;
+                                DateTime myDate = new DateTime(2020, myMonthNumber, 1);
+                                <p class="oi oi-lock-locked text-success text-center p-2" onclick="@(() => ToggleMonthlyLock(myMonthNumber))"></p>  @myDate.ToString("MMM")
+                                <div>
+                                    <SfButton IsPrimary="true" CssClass="e-primary e-outline" @onclick="@(() => FilterByDuration(InterestingYear, myMonthNumber))">Filter</SfButton>
+                                </div>
+                                if (!TransactionService.SalesLcSumming && MonthlySalesLc is not null)
+                                {
+                                    <p>Sales LC: @MonthlySalesLc[myMonthNumber -1].ToString("N2")</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                                if (!TransactionService.EntitiesCounting && CountMonthlyEntity is not null)
+                                {
+                                    <p>Entities count: @CountMonthlyEntity[myMonthNumber - 1].ToString()</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                            }
+                            else
+                            {
+                                int myMonthNumber = monthNumber;
+                                DateTime myDate = new DateTime(2020, myMonthNumber, 1);
+                                <p class="oi oi-lock-unlocked text-danger text-center p-2" onclick="@(() => ToggleMonthlyLock(myMonthNumber))"></p> @myDate.ToString("MMM")
+                                <div>
+                                    <SfButton IsPrimary="true" CssClass="e-primary e-outline" @onclick="@(() => FilterByDuration(InterestingYear, myMonthNumber))">Filter</SfButton>
+                                </div>
+                                if (!TransactionService.SalesLcSumming && MonthlySalesLc is not null)
+                                {
+                                    <p>Sales LC: @MonthlySalesLc[myMonthNumber -1].ToString("N2")</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                                if (!TransactionService.EntitiesCounting && CountMonthlyEntity is not null)
+                                {
+                                    <p>Entities count: @CountMonthlyEntity[myMonthNumber - 1].ToString()</p>
+                                }
+                                else
+                                {
+                                    <em>Calculating</em>
+                                }
+                            }
+                        }
+                    </p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+</SfCard>
+
+@code
+{
+    [Parameter] public FilterDuration? MyFilterDuration { get; set; }
+    [Parameter] public EventCallback<FilterDuration> FilterDurationChanged { get; set; }
+    public class FilterDuration 
+    {
+        public int DurationFilterYear { get; set; }
+        public int DurationFilterMonth { get; set; }
+    }
+    private int InterestingYear = System.DateTime.Today.Year;
+    private List<TransactionMonthlyLock>? TransactionMonthlyLocks;
+    private List<double>? MonthlySalesLc;
+    private List<int>? CountMonthlyEntity;
+    protected override async Task OnInitializedAsync()
+    {
+        await GetYearLocks();
+        await GetMonthlySalesAndEntitiesCount();
+    }
+    private async Task YearChanged(bool increment)
+    {
+        if (increment)
+        {
+            InterestingYear++;
+        }
+        else
+        {
+            InterestingYear--;
+        }
+        await GetYearLocks();
+        await GetMonthlySalesAndEntitiesCount();
+    }
+    private async Task GetYearLocks()
+    {
+        TransactionMonthlyLocks = new();
+        for (int monthNumber = 1; monthNumber <= 12; monthNumber++)
+        {
+            TransactionMonthlyLock transactionMonthlyLock = await TransactionMonthlyLockService.GetByYearMonthAsync(InterestingYear, monthNumber);
+            if (transactionMonthlyLock is not null) TransactionMonthlyLocks.Add(transactionMonthlyLock);
+        }
+    }
+    private async Task ToggleMonthlyLock(int monthNumber)
+    {
+        if (TransactionMonthlyLocks is not null)
+        {
+            TransactionMonthlyLock? subjectLock = TransactionMonthlyLocks.Find(L => L.LockMonth == monthNumber);
+            if (subjectLock is not null)
+            {
+                subjectLock.IsLocked = !subjectLock.IsLocked;
+                await subjectLock.SetModifyInfo(authenticationStateProvider);
+                await TransactionMonthlyLockService.UpdateEntityAsync(subjectLock);
+                StateHasChanged();
+            }
+        }
+    }
+    private async Task FilterByDuration(int requestedYear, int requestedMonth)
+    {
+        await FilterDurationChanged.InvokeAsync(new() {DurationFilterYear = requestedYear, DurationFilterMonth = requestedMonth});
+    }
+    private async Task GetMonthlySalesAndEntitiesCount()
+    {
+        MonthlySalesLc = new();
+        CountMonthlyEntity = new();
+        for (int monthNumber = 1; monthNumber <= 12; monthNumber++)
+        {
+            double ThisMonthSalesLC = await TransactionService.GetSumSalesLCYearMonth(InterestingYear, monthNumber);
+            MonthlySalesLc.Add(ThisMonthSalesLC);
+
+            int ThisMonthEntitiesCount = await TransactionService.GetEntitiesCountAsync(InterestingYear, monthNumber);
+            CountMonthlyEntity.Add(ThisMonthEntitiesCount);
+
+        }
+    }
+}

@@ -1,0 +1,93 @@
+﻿@inherits LayoutComponentBase
+
+@inject AuthenticationStateProvider authenticationStateProvider
+@using Microsoft.AspNetCore.Identity
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+<PageTitle>ORAGO_CC_Planning</PageTitle>
+
+<div class="page">
+    @if(IsVisible)
+    {
+     <div class="sidebar">
+        <NavMenu />
+    </div> 
+    }
+
+    <main>
+        <div class="top-row bg-dark auth">
+            <div>
+            <button class="btn btn-primary m-r-15" @onclick="()=> OnClick()">
+                <span class="oi oi-list" style="color: white;"></span>
+            </button>
+            </div>
+            <div class=" text-white text-center" style="width: 100%;">
+                <h1 class="text-center">ORAGO Cost Controlling <span style="font-size: 18px;">Planning module</span></h1>
+            </div>
+            <AuthorizeView>
+                <Authorized>
+                    <div class="text-center">
+                        <form method="post" action="Identity/Account/LogOut">
+                            <button style="color: white; font-size:20px; font-weight: bold;" type="submit" class="nav-link btn btn-link">Log out</button>
+                        </form>
+                    </div>
+                </Authorized>  
+    <NotAuthorized>
+        <a href="Identity/Account/Register" style="color: white; font-size:20px;">Register</a>
+            <a href="Identity/Account/Login" style="color: white; font-size:20px;">Log in</a>
+    </NotAuthorized>
+            </AuthorizeView>
+                @* <div class="nav-item px-4">
+                     <NavLink class="nav-link" href="budget">
+                        <span class="oi oi-book" aria-hidden="true"></span> Budget
+                    </NavLink> 
+                </div>
+                <div class="nav-item px-4">
+                     <NavLink class="nav-link" href="articlesdata">
+                        <span class="oi oi-list-rich" aria-hidden="true"></span> Articles
+                    </NavLink> 
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="customerdata">
+                        <span class="oi oi-person" aria-hidden="true"></span> Customers
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="settings">
+                        <span class="oi oi-cog" aria-hidden="true"></span> Settings
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="currenciesdata">
+                        <span class="oi oi-euro" aria-hidden="true"></span> Currencies
+                    </NavLink>
+                </div>  *@
+                    @* <LoginDisplay /> *@
+@*                     
+            <AuthorizeView>
+                <Authorized>
+                    <div class="top-row auth" style="float:right;">
+                    <form method="post" action="Identity/Account/LogOut" >
+                        <button type="submit" class="nav-link btn btn-link">Log out</button>
+                    </form>
+                    </div>
+                </Authorized>
+            </AuthorizeView> *@
+            @* <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a> *@
+        </div>
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+@code 
+{
+    private bool IsVisible = false;
+    public List<IdentityUser>? identityUsers;
+     
+
+    private void OnClick()
+    {
+            IsVisible = !IsVisible;   
+    }
+}

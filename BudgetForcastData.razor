@@ -1,0 +1,1136 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject IArticleFinalRepository ArticleService
+@inject ICurrencyRepository CurrencyService
+@inject ICustomerFinalRepository CustomerService
+@inject IExchangeRateRepository ExchangeRateService
+@inject ITransactionRepository TransactionService
+@inject IBudgetEntryRepository BudgetEntryService
+@inject IYearlyLockRepository YearlyLockService
+@inject IBudgetCurrencyRepository BudgetCurrencyService
+@inject IVolumeTemplateRepository VolumeTemplateService
+@inject IEntityLocalCurrencyRepository EntityLocalCurrencyService
+
+
+<div class="row">
+    <div class="col">
+        <div class="bg-dark bg-gradient text-white p-2 text-center rounded">Forecast</div>
+        <br />
+        <div class="row text-center">
+            <div class="col-4">
+                <SfButton CssClass="e-primary" OnClick="@(() => activeForecast--)" IconCss="e-icons e-chevron-left"></SfButton>
+            </div>                    
+            <div class="col-4">
+                <p class="lead text-center">Forecast @activeForecast</p>
+            </div>                    
+            <div class="col-4">
+                <SfButton CssClass="e-primary" OnClick="@(() => activeForecast++)" IconCss="e-icons e-chevron-right"></SfButton>
+            </div>
+        </div>
+        <br />
+        @if ((BudgetEntryService.ListLoading))
+        {
+            <em class="text-info text-center">Loading data...</em>
+        }
+        else
+        {
+            @if (BudgetEntryService.ListNotFound)
+            {
+                <em class="text-danger text-center">No forecast data found in database</em>
+            }
+            else
+            {
+                @if (yearlyLock is not null && activeForecast == 1 && budgetEntries is not null)
+                {
+                    @* <label for="fC1ActualDataGrid" class="text-center">Actual data</label>                              *@
+                    <div class="row">
+                        @if(volumeTemplate is null)
+                        {
+                            <p class="text-primary text-center">Please select a Volume Template</p>
+                        }
+                        else
+                        {
+                            <div class="col-4">
+                                <SfNumericTextBox  TValue=double Format="N0" Placeholder="Annual qty." ShowSpinButton="false"
+                                    FloatLabelType="@FloatLabelType.Auto" @bind-Value="@annualQuantityForecast">
+                                 </SfNumericTextBox>
+                            </div>                    
+                            <div class="col-3">
+                                <SfNumericTextBox TValue=double Format="N2" Placeholder="Default price" ShowSpinButton="false"
+                                    FloatLabelType="@FloatLabelType.Auto" @bind-Value="@defaultPriceForecast">
+                                </SfNumericTextBox>
+                            </div>                    
+                            <div class="col-3">
+                                <SfNumericTextBox TValue=double Format="N2" Placeholder="Default surcharge %" ShowSpinButton="false"
+                                    FloatLabelType="@FloatLabelType.Auto" @bind-Value="@defaultSurchargeForecast" EditType="EditType.Numeric">
+                                </SfNumericTextBox>
+                            </div>                    
+                            <div class="col-2">
+                                <br />
+                                <SfButton CssClass="e-primary" OnClick="@(() => (ApplyTemplateAsync(year = 3)))" IconCss="e-icons e-changes-accept" Disabled = "@(yearlyLock.IsLocked || yearlyLock.ActiveForecast != 2)"></SfButton>
+                            </div>
+                        }
+                    </div><br /> 
+                    @if (fC1ActualDataEntries is not null)
+                    {
+                        <SfGrid id="fC1ActualDataGrid" DataSource="@fC1ActualDataEntries" TValue="ActualDataEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                            <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="false"
+                                Mode="EditMode.Normal">
+                            </GridEditSettings>
+                            <GridColumns>
+                                <GridColumn Field=@nameof(ActualDataEntry.DurationNr)
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Visible="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.YearName) HeaderText="Year"
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.MonthName) HeaderText="Month"
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.NetPriceLC) Format="N2" HeaderText="Price LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SurchargeLC) Format="N2" HeaderText="Surcharge LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.TotalPriceLC) Format="N2" HeaderText="Net price LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.NetPriceDC) Format="N2" HeaderText="Price DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SurchargeDC) Format="N2" HeaderText="Surcharge DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.TotalPriceDC) Format="N2" HeaderText="Net price DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.Quantity) HeaderText="Qty."
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Format="N0">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SalesLC) Format="N0" HeaderText="Sales LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SalesDC) Format="N0" HeaderText="Sales DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                            </GridColumns>
+                        </SfGrid>
+                    }
+                    @* <label for="forecast1DataGrid" class="text-center">Forecast data</label> *@
+                    <SfGrid id="forecast1DataGrid" @ref="Grid" DataSource="@budgetEntries" TValue="BudgetEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                        <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="@(yearlyLock.ActiveForecast == 1)"
+                            Mode="EditMode.Normal">
+                        </GridEditSettings>
+                        <GridEvents RowDataBound="FC1DataBoundHandler" OnActionBegin="BudgetEntryActionBeginHandler" TValue="BudgetEntry"></GridEvents> 
+                        <GridColumns>
+                            <GridColumn Field=@nameof(BudgetEntry.Id)
+                                IsPrimaryKey="true"
+                                ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                Visible="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.YearNumber) HeaderText="Year"
+                                ValidationRules="@(new ValidationRules{ Required=true})" EditorSettings="@(NumericEditParams)"
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.MonthName) headerText="Month"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" AllowEditing="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC1Price) Visible="@ShowDocumentValues"  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Price " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N2">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Price " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC1Price * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn> 
+                            <GridColumn HeaderText="Price EUR"Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC1Price * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC1Surcharge) Visible="@ShowDocumentValues"  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Surcharge " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N2">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Surcharge " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC1Surcharge * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Surcharge EUR"Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC1Surcharge * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Net price " + budgetCurrency?.DocumentCurrencyCode) Visible="@ShowDocumentValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC1Surcharge + thisEntry.FC1Price) * 1).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Net price " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC1Surcharge + thisEntry.FC1Price) * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Net price EUR" Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC1Surcharge + thisEntry.FC1Price) * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC1Quantity) EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N0">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC1Sales)  Visible="@ShowDocumentValues" EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Sales " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Format="N0">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Sales " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N0" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC1Sales * xRDL2).ToString("N0"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Sales EUR"Visible="@ShowEurValues" Format="N0" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC1Sales * xRDE2).ToString("N0"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                        <GridAggregates>
+                            <GridAggregate>
+                                <GridAggregateColumns>
+                                    <GridAggregateColumn Field=@nameof(BudgetEntry.FC1Quantity) Type="AggregateType.Sum" Format="N0">
+                                        <FooterTemplate Context="meraBudgetData">
+                                            @{
+                                                var aggregate = (meraBudgetData as AggregateTemplateContext);
+                                                <div>
+                                                    @if (aggregate is not null)
+                                                    {
+                                                        <p>@FC1QuantityTotal(aggregate)</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </FooterTemplate>
+                                    </GridAggregateColumn>
+                                    <GridAggregateColumn Field=@nameof(BudgetEntry.FC1Sales) Type="AggregateType.Sum" Format="N0">
+                                        <FooterTemplate Context="meraBudgetData">
+                                            @{
+                                                var aggregate = (meraBudgetData as AggregateTemplateContext);
+                                                <div>
+                                                    @if (aggregate is not null)
+                                                    {
+                                                        <p>@FC1SalesDCTotal(aggregate)</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </FooterTemplate>
+                                    </GridAggregateColumn>
+                                </GridAggregateColumns>
+                            </GridAggregate>
+                        </GridAggregates>
+                        @*<GridEvents OnActionBegin="BudgetEntryActionBeginHandler" OnActionComplete="BudgetEntryActionCompleteHandler" TValue="BudgetEntry"></GridEvents>*@
+                    </SfGrid>
+                }
+                else if (yearlyLock is not null && activeForecast == 2 && budgetEntries is not null)
+                {
+                    @* <label for="fC1ActualDataGrid" class="text-center">Actual data</label> *@
+                    @if (fC2ActualDataEntries is not null)
+                    {
+                        <SfGrid id="fC2ActualDataGrid" DataSource="@fC2ActualDataEntries" TValue="ActualDataEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                            <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="false"
+                                Mode="EditMode.Normal">
+                            </GridEditSettings>
+                            <GridColumns>
+                                <GridColumn Field=@nameof(ActualDataEntry.DurationNr)
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Visible="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.YearName) HeaderText="Year"
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.MonthName) HeaderText="Month"
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.NetPriceLC) Format="N2" HeaderText="Price LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SurchargeLC) Format="N2" HeaderText="Surcharge LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.TotalPriceLC) Format="N2" HeaderText="Net Price LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.NetPriceDC) Format="N2" HeaderText="Price DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SurchargeDC) Format="N2" HeaderText="Surcharge DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.TotalPriceDC) Format="N2" HeaderText="Net price DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.Quantity) HeaderText="Qty."
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Format="N0">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SalesLC) Format="N0" HeaderText="Sales LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SalesDC) Format="N0" HeaderText="Sales DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                            </GridColumns>
+                        </SfGrid>
+                    }
+                    @* <label for="forecast1DataGrid" class="text-center">Forecast data</label> *@
+                    <SfGrid id="forecast2DataGrid" DataSource="@budgetEntries" TValue="BudgetEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                        <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="@(yearlyLock.ActiveForecast==2)"
+                            Mode="EditMode.Normal">
+                        </GridEditSettings>
+                        <GridEvents RowDataBound="FC2DataBoundHandler" OnActionBegin="BudgetEntryActionBeginHandler" TValue="BudgetEntry"></GridEvents> 
+                        <GridColumns>
+                            <GridColumn Field=@nameof(BudgetEntry.Id)
+                                IsPrimaryKey="true"
+                                ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                Visible="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.YearNumber) HeaderText="Year" EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.MonthName) headerText="Month"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" AllowEditing="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC2Price) Visible="@ShowDocumentValues"  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Price " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N2">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Price " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC2Price * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Price EUR"Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC2Price * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC2Surcharge) Visible="@ShowDocumentValues"  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Surcharge " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N2">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Surcharge " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC2Surcharge * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Surcharge EUR"Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC2Surcharge * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Net price " + budgetCurrency?.DocumentCurrencyCode) Visible="@ShowDocumentValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC2Surcharge + thisEntry.FC2Price) * 1).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Net price " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC2Surcharge + thisEntry.FC2Price) * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Net price EUR" Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC2Surcharge + thisEntry.FC2Price) * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC2Quantity)  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N0">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC2Sales)  Visible="@ShowDocumentValues" EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Sales " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Format="N0">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Sales " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N0" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC2Sales * xRDL2).ToString("N0"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Sales EUR"Visible="@ShowEurValues" Format="N0" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC2Sales * xRDE2).ToString("N0"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                        <GridAggregates>
+                            <GridAggregate>
+                                <GridAggregateColumns>
+                                    <GridAggregateColumn Field=@nameof(BudgetEntry.FC2Quantity) Type="AggregateType.Sum" Format="N0">
+                                        <FooterTemplate Context="meraBudgetData">
+                                            @{
+                                                var aggregate = (meraBudgetData as AggregateTemplateContext);
+                                                <div>
+                                                    @if (aggregate is not null)
+                                                    {
+                                                        <p>@FC2QuantityTotal(aggregate)</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </FooterTemplate>
+                                    </GridAggregateColumn>
+                                    <GridAggregateColumn Field=@nameof(BudgetEntry.FC2Sales) Type="AggregateType.Sum" Format="N0">
+                                        <FooterTemplate Context="meraBudgetData">
+                                            @{
+                                                var aggregate = (meraBudgetData as AggregateTemplateContext);
+                                                <div>
+                                                    @if (aggregate is not null)
+                                                    {
+                                                        <p>@FC2SalesDCTotal(aggregate)</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </FooterTemplate>
+                                    </GridAggregateColumn>
+                                </GridAggregateColumns>
+                            </GridAggregate>
+                        </GridAggregates>
+                    </SfGrid>
+                }
+                else if (yearlyLock is not null  && activeForecast == 3 && budgetEntries is not null)
+                {
+                    @* <label for="fC1ActualDataGrid" class="text-center">Actual data</label> *@
+                    @if (fC1ActualDataEntries is not null)
+                    {
+                        <SfGrid id="fC3ActualDataGrid" DataSource="@fC3ActualDataEntries" TValue="ActualDataEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                            <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="false"
+                                Mode="EditMode.Normal">
+                            </GridEditSettings>
+                            <GridColumns>
+                                <GridColumn Field=@nameof(ActualDataEntry.DurationNr)
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Visible="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.YearName) HeaderText="Year"
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.MonthName) HeaderText="Month"
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.NetPriceLC) Format="N2" HeaderText="Price LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SurchargeLC) Format="N2" HeaderText="Surcharge LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.TotalPriceLC) Format="N2" HeaderText="Net price LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.NetPriceDC) Format="N2" HeaderText="Price DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SurchargeDC) Format="N2" HeaderText="Surcharge DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.TotalPriceDC) Format="N2" HeaderText="Net price DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.Quantity) HeaderText="Qty."
+                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Format="N0">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SalesLC) Format="N0" HeaderText="Sales LC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowLocalValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                                <GridColumn Field=@nameof(ActualDataEntry.SalesDC) Format="N0" HeaderText="Sales DC"
+                                    ValidationRules="@(new ValidationRules{ Required=true})" Visible="@ShowDocumentValues"
+                                    Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                                </GridColumn>
+                            </GridColumns>
+                        </SfGrid>
+                    }
+                    @* <label for="forecast1DataGrid" class="text-center">Forecast data</label> *@
+                    <SfGrid id="forecast3DataGrid" DataSource="@budgetEntries" TValue="BudgetEntry" AllowPaging="false" AllowResizing="true" AllowTextWrap="true">
+                        <GridEditSettings AllowAdding="false" AllowDeleting="false" AllowEditing="@(yearlyLock.ActiveForecast == 3)"
+                            Mode="EditMode.Normal">
+                        </GridEditSettings>
+                        <GridEvents RowDataBound="FC3DataBoundHandler" OnActionBegin="BudgetEntryActionBeginHandler" TValue="BudgetEntry"></GridEvents> 
+                        <GridColumns>
+                            <GridColumn Field=@nameof(BudgetEntry.Id)
+                                IsPrimaryKey="true"
+                                ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                Visible="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.YearNumber) HeaderText="Year" EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.MonthName) headerText="Month"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" AllowEditing="false">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC3Price) Visible="@ShowDocumentValues"  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Price " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N2">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Price " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC3Price * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Price EUR"Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC3Price * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC3Surcharge) Visible="@ShowDocumentValues"  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Surcharge " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N2">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Surcharge " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC3Surcharge * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Surcharge EUR"Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC3Surcharge * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Net price " + budgetCurrency?.DocumentCurrencyCode) Visible="@ShowDocumentValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC3Surcharge + thisEntry.FC3Price) * 1).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Net price " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC3Surcharge + thisEntry.FC3Price) * xRDL2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Net price EUR" Visible="@ShowEurValues" Format="N2" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @(((thisEntry.FC3Surcharge + thisEntry.FC3Price) * xRDE2).ToString("N2"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC3Quantity)  EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})"
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="true" Format="N0">
+                            </GridColumn>
+                            <GridColumn Field=@nameof(BudgetEntry.FC3Sales)  Visible="@ShowDocumentValues" EditorSettings="@(NumericEditParams)"
+                                ValidationRules="@(new ValidationRules{ Required=true})" HeaderText=@("Sales " + budgetCurrency?.DocumentCurrencyCode)
+                                Width="auto" EditType="EditType.DefaultEdit" AllowEditing="false" Format="N0">
+                            </GridColumn>
+                            <GridColumn HeaderText=@("Sales " + budgetCurrency?.LocalCurrencyCode) Visible="@ShowLocalValues" Format="N0" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC3Sales * xRDL2).ToString("N0"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                            <GridColumn HeaderText="Sales EUR"Visible="@ShowEurValues" Format="N0" EditorSettings="@(NumericEditParams)">
+                                <Template Context="meraBudgetData">
+                                    @{
+                                        var thisEntry = (meraBudgetData as BudgetEntry);
+                                        if (thisEntry is not null)
+                                        {
+                                            @((thisEntry.FC3Sales * xRDE2).ToString("N0"))
+                                        }
+                                    }
+                                </Template>
+                            </GridColumn>
+                        </GridColumns>
+                        <GridAggregates>
+                            <GridAggregate>
+                                <GridAggregateColumns>
+                                    <GridAggregateColumn Field=@nameof(BudgetEntry.FC3Quantity) Type="AggregateType.Sum" Format="N0">
+                                        <FooterTemplate Context="meraBudgetData">
+                                            @{
+                                                var aggregate = (meraBudgetData as AggregateTemplateContext);
+                                                <div>
+                                                    @if (aggregate is not null)
+                                                    {
+                                                        <p>@FC3QuantityTotal(aggregate)</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </FooterTemplate>
+                                    </GridAggregateColumn>
+                                    <GridAggregateColumn Field=@nameof(BudgetEntry.FC3Sales) Type="AggregateType.Sum" Format="N0">
+                                        <FooterTemplate Context="meraBudgetData">
+                                            @{
+                                                var aggregate = (meraBudgetData as AggregateTemplateContext);
+                                                <div>
+                                                    @if (aggregate is not null)
+                                                    {
+                                                        <p>@FC3SalesDCTotal(aggregate)</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </FooterTemplate>
+                                    </GridAggregateColumn> 
+                                </GridAggregateColumns>
+                            </GridAggregate>
+                        </GridAggregates>
+                        @*<GridEvents OnActionBegin="BudgetEntryActionBeginHandler" OnActionComplete="BudgetEntryActionCompleteHandler" TValue="BudgetEntry"></GridEvents>*@
+                    </SfGrid>
+                }
+            }
+        }
+    </div>
+</div>
+@code 
+{
+    [Parameter]
+    public int year { get; set; }
+    private int budgetStartYear {get; set; } = DateTime.Now.Year + 1;
+    private CustomerFinal? customer;
+    private int customerId;
+    private ArticleFinal? article;
+    private List<BudgetEntry>? budgetEntries;
+    private BudgetEntry? budgetEntry;
+    private int budgetEntryId;
+    private YearlyLock? yearlyLock;
+    private int activeForecast = 1;
+    private List<ActualDataEntry>? fC1ActualDataEntries;
+    private List<ActualDataEntry>? fC2ActualDataEntries;
+    private List<ActualDataEntry>? fC3ActualDataEntries;
+    private BudgetCurrency? budgetCurrency;
+    private double annualQuantity;
+    private double defaultPrice;
+    private double defaultSurcharge;
+    private double annualQuantityNextYear;
+    private double defaultPriceNextYear;
+    private double defaultSurchargeNextYear;
+    private double annualQuantityForecast;
+    private double defaultPriceForecast;
+    private double defaultSurchargeForecast;
+    private string displayCurrency = "Document currency";
+    public double xRDL2 = 1;    //Document currency to Local currency year 1
+    public double xRDE2 = 1;    //Document currency to EUR year 1
+    public VolumeTemplate? volumeTemplate;
+    public IEditorSettings NumericEditParams = new NumericEditCellParams
+    {
+        Params = new NumericTextBoxModel<object>() { ShowClearButton = false, ShowSpinButton = false }
+    };
+    private bool ShowDocumentValues
+    {
+        get
+        {
+            if (budgetCurrency is not null)
+            {
+                return displayCurrency == "Document currency";
+            }
+            return false;
+        }
+    }
+    private bool ShowLocalValues
+    {
+        get
+        {
+            if (budgetCurrency is not null)
+            {
+                return displayCurrency == "Local currency";
+            }
+            return false;
+        }
+    }
+    private bool ShowEurValues
+    {
+        get
+        {
+            if (budgetCurrency is not null)
+            {
+                return displayCurrency == "Euro";
+            }
+            return false;
+        }
+    }
+
+     public class ActualDataEntry
+    {
+        public ActualDataEntry(int _yearName, int _durationNr)
+        {
+            this.DurationNr = _durationNr;
+            if (this.DurationNr > 24)
+            {
+                this.MonthName = DateTime.Parse("2000, " + (this.DurationNr - 24).ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr - 24;
+                this.YearName = _yearName + 2;
+            }
+            else if (this.DurationNr > 12)
+            {
+                this.MonthName = DateTime.Parse("2000, " + (this.DurationNr - 12).ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr - 12;
+                this.YearName = _yearName + 1;
+            }
+            else
+            {
+                this.MonthName = DateTime.Parse("2000, " + this.DurationNr.ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr;
+                this.YearName = _yearName;
+            }
+        }
+        public int DurationNr { get; set; }
+        public int MonthNr { get; set; }
+        public string? MonthName { get; set; }
+        public int YearName { get; set; }
+        public double Quantity { get; set; }
+        public double SalesLC { get; set; }
+        public double SurchargeLC { get; set; }
+        public double TotalPriceLC
+        {
+            get
+            {
+                if (this.Quantity != 0) return SalesLC / Quantity;
+                return 0;
+            }
+            set { }
+        }
+        public double NetPriceLC
+        {
+            get
+            {
+                return this.TotalPriceLC - this.SurchargeLC;
+            }
+            set { }
+        }
+        public double SalesDC { get; set; }
+        public double SurchargeDC { get; set; }
+        public double TotalPriceDC
+        {
+            get
+            {
+                if (this.Quantity != 0) return SalesDC / Quantity;
+                return 0;
+            }
+            set { }
+        }
+        public double NetPriceDC
+        {
+            get
+            {
+                return this.TotalPriceLC - this.SurchargeLC;
+            }
+            set { }
+        }
+    } 
+    private SfGrid<BudgetEntry>? Grid {get; set;}
+    protected override async Task OnInitializedAsync()
+    {
+        customer = await CustomerService.GetByIdAsync(customerId);
+        budgetEntries = await BudgetEntryService!.GetAllAsync();
+        budgetEntry = await BudgetEntryService!.GetByIdAsync(budgetEntryId);
+    }
+    private async Task PopulateFC2ActualDataAsync()
+    {
+        fC2ActualDataEntries = new();
+        if ((customer is not null) && (article is not null) && (customer.BpCode != "") && (article.ItemNo != "") && (customer.BpCode is not null) && (article.ItemNo is not null))
+        {
+            for (int actualDataGenerator = 1; actualDataGenerator <= 6; actualDataGenerator++)
+            {
+                ActualDataEntry fC2ActualDataEntry = new ActualDataEntry(budgetStartYear - 1, actualDataGenerator);
+                var itsTransactions = await TransactionService!.GetForActualDataAsync(customer.BpCode, article.ItemNo, fC2ActualDataEntry.MonthNr, fC2ActualDataEntry.YearName);
+                if (itsTransactions is not null)
+                {
+                    fC2ActualDataEntry.Quantity = itsTransactions.Sum(t => t.Quantity);
+                    fC2ActualDataEntry.SalesLC = itsTransactions.Sum(t => t.SalesLc + t.SurchargeLc);
+                    fC2ActualDataEntry.SalesDC = itsTransactions.Sum(t => t.SalesDc + t.SurchargeDc);
+                    fC2ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC2ActualDataEntry.Quantity;
+                    fC2ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC2ActualDataEntry.Quantity;
+                    if (fC2ActualDataEntry.Quantity != 0)
+                    {
+                        fC2ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC2ActualDataEntry.Quantity;
+                        fC2ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC2ActualDataEntry.Quantity;
+                    }
+                    else
+                    {
+                        fC2ActualDataEntry.SurchargeLC = 0;
+                        fC2ActualDataEntry.SurchargeDC = 0;
+                    }
+                }
+                fC2ActualDataEntries.Add(fC2ActualDataEntry);
+            }
+        }
+    }
+    private async Task BudgetEntryActionBeginHandler(ActionEventArgs<BudgetEntry> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (Args.Action == "Add")
+            {
+                await Args.Data.SetCreateInfo(authenticationStateProvider!);
+                await BudgetEntryService!.AddEntityAsync(Args.Data);
+            }
+            else
+            {
+                await Args.Data.SetModifyInfo(authenticationStateProvider!);
+                await BudgetEntryService!.UpdateEntityAsync(Args.Data);
+            }
+        }
+    }
+    public void FC1DataBoundHandler(RowDataBoundEventArgs<BudgetEntry> args)
+    {
+        if (args.Data.FC1Allowed)
+        {
+
+        }
+        else
+        {
+            args.Row.AddClass(new string[] { "e-inactive" });
+        }
+    }
+    public void FC2DataBoundHandler(RowDataBoundEventArgs<BudgetEntry> args)
+    {
+        if (args.Data.FC2Allowed)
+        {
+
+        }
+        else
+        {
+            args.Row.AddClass(new string[] { "e-inactive" });
+        }
+    }
+    public void FC3DataBoundHandler(RowDataBoundEventArgs<BudgetEntry> args)
+    {
+        if (args.Data.FC3Allowed)
+        {
+
+        }
+        else
+        {
+            args.Row.AddClass(new string[] { "e-inactive" });
+        }
+    }
+    private async Task ApplyTemplateAsync(int year)
+    {
+        if (budgetEntries is not null && volumeTemplate is not null)
+        {
+            foreach (BudgetEntry budgetEntry in budgetEntries)
+            {
+                if (budgetEntry.BudgetAllowed)
+                {
+                    if (budgetEntry.MonthNumber == 1) budgetEntry.VolumePercentage = volumeTemplate.Month1Percentage/100;
+                    if (budgetEntry.MonthNumber == 2) budgetEntry.VolumePercentage = volumeTemplate.Month2Percentage/100;
+                    if (budgetEntry.MonthNumber == 3) budgetEntry.VolumePercentage = volumeTemplate.Month3Percentage/100;
+                    if (budgetEntry.MonthNumber == 4) budgetEntry.VolumePercentage = volumeTemplate.Month4Percentage/100;
+                    if (budgetEntry.MonthNumber == 5) budgetEntry.VolumePercentage = volumeTemplate.Month5Percentage/100;
+                    if (budgetEntry.MonthNumber == 6) budgetEntry.VolumePercentage = volumeTemplate.Month6Percentage/100;
+                    if (budgetEntry.MonthNumber == 7) budgetEntry.VolumePercentage = volumeTemplate.Month7Percentage/100;
+                    if (budgetEntry.MonthNumber == 8) budgetEntry.VolumePercentage = volumeTemplate.Month8Percentage/100;
+                    if (budgetEntry.MonthNumber == 9) budgetEntry.VolumePercentage = volumeTemplate.Month9Percentage/100;
+                    if (budgetEntry.MonthNumber == 10) budgetEntry.VolumePercentage = volumeTemplate.Month10Percentage/100;
+                    if (budgetEntry.MonthNumber == 11) budgetEntry.VolumePercentage = volumeTemplate.Month11Percentage/100;
+                    if (budgetEntry.MonthNumber == 12) budgetEntry.VolumePercentage = volumeTemplate.Month12Percentage/100;
+                    if(year == 1)
+                    {
+                        if (budgetEntry.YearNumber == budgetStartYear)
+                        {
+                            if (defaultPrice != 0) budgetEntry.BudgetPrice = defaultPrice;
+                            if (defaultSurcharge != 0) 
+                            {
+                                budgetEntry.BudgetSurcharge = (defaultSurcharge * budgetEntry.BudgetPrice)/100;
+                                if (defaultPrice!= 0) budgetEntry.BudgetSurcharge = (defaultSurcharge * defaultPrice)/100;
+                            }    
+                            if (annualQuantity != 0) budgetEntry.BudgetQuantity = annualQuantity * budgetEntry.VolumePercentage;
+                        }
+                    } 
+                    else if(year == 2)
+                    {
+                        if(budgetEntry.YearNumber == budgetStartYear + 1)
+                        {
+                            if (defaultPriceNextYear != 0) budgetEntry.BudgetPrice = defaultPriceNextYear;
+                            if (defaultSurchargeNextYear != 0) 
+                            {
+                                budgetEntry.BudgetSurcharge = (defaultSurchargeNextYear * budgetEntry.BudgetPrice)/100;
+                                if (defaultPriceNextYear!= 0) budgetEntry.BudgetSurcharge = (defaultSurchargeNextYear * defaultPriceNextYear)/100;
+                            }    
+                            if (annualQuantityNextYear != 0) budgetEntry.BudgetQuantity = annualQuantityNextYear * budgetEntry.VolumePercentage;
+                        }
+                    }
+                    await budgetEntry.SetModifyInfo(authenticationStateProvider!);
+                    await BudgetEntryService!.UpdateEntityAsync(budgetEntry);
+                }
+            }
+            if (!BudgetEntryService!.ListLoading && customer is not null && article is not null && yearlyLock is not null)
+            {
+                budgetEntries = await BudgetEntryService.GetByYearVersionCustomerArticleAsync(budgetStartYear, article, customer, yearlyLock.Name, authenticationStateProvider);
+            }
+        }
+    }
+    public string FC1SalesDCTotal(AggregateTemplateContext val)
+    {
+        double resultNr = 0;
+        if (budgetEntries is not null)
+        {
+            var data = budgetEntries.Where(e => e.BudgetAllowed = true && e.YearNumber < budgetStartYear);
+            resultNr = Queryable.Sum(data.Select(x => x.FC1Sales).AsQueryable());
+        }
+        if (fC1ActualDataEntries is not null)
+        {
+            resultNr += Queryable.Sum(fC1ActualDataEntries.Select(x => x.SalesDC).AsQueryable());
+        }
+        return resultNr.ToString("N0");
+    }
+    public string FC2SalesDCTotal(AggregateTemplateContext val)
+    {
+        double resultNr = 0;
+        if (budgetEntries is not null)
+        {
+            var data = budgetEntries.Where(e => e.BudgetAllowed = true && e.YearNumber < budgetStartYear);
+            resultNr = Queryable.Sum(data.Select(x => x.FC2Sales).AsQueryable());
+        }
+        if (fC2ActualDataEntries is not null)
+        {
+            resultNr += Queryable.Sum(fC2ActualDataEntries.Select(x => x.SalesDC).AsQueryable());
+        }
+        return resultNr.ToString("N0");
+    }
+    public string FC3SalesDCTotal(AggregateTemplateContext val)
+    {
+        double resultNr = 0;
+        if (budgetEntries is not null)
+        {
+            var data = budgetEntries.Where(e => e.BudgetAllowed = true && e.YearNumber < budgetStartYear);
+            resultNr = Queryable.Sum(data.Select(x => x.FC3Sales).AsQueryable());
+        }
+        if (fC3ActualDataEntries is not null)
+        {
+            resultNr += Queryable.Sum(fC3ActualDataEntries.Select(x => x.SalesDC).AsQueryable());
+        }
+        return resultNr.ToString("N0");
+    }
+    public string FC1QuantityTotal(AggregateTemplateContext val)
+    {
+        double resultNr = 0;
+        if (budgetEntries is not null)
+        {
+            var data = budgetEntries.Where(e => e.BudgetAllowed = true && e.YearNumber < budgetStartYear);
+            resultNr = Queryable.Sum(data.Select(x => x.FC1Quantity).AsQueryable());
+        }
+        if (fC1ActualDataEntries is not null)
+        {
+            resultNr += Queryable.Sum(fC1ActualDataEntries.Select(x => x.Quantity).AsQueryable());
+        }
+        return resultNr.ToString("N0");
+    }
+    public string FC2QuantityTotal(AggregateTemplateContext val)
+    {
+        double resultNr = 0;
+        if (budgetEntries is not null)
+        {
+            var data = budgetEntries.Where(e => e.BudgetAllowed = true && e.YearNumber < budgetStartYear);
+            resultNr = Queryable.Sum(data.Select(x => x.FC2Quantity).AsQueryable());
+        }
+        if (fC2ActualDataEntries is not null)
+        {
+            resultNr += Queryable.Sum(fC2ActualDataEntries.Select(x => x.Quantity).AsQueryable());
+        }
+        return resultNr.ToString("N0");
+    }
+    public string FC3QuantityTotal(AggregateTemplateContext val)
+    {
+        double resultNr = 0;
+        if (budgetEntries is not null)
+        {
+            var data = budgetEntries.Where(e => e.BudgetAllowed = true && e.YearNumber < budgetStartYear);
+            resultNr = Queryable.Sum(data.Select(x => x.FC3Quantity).AsQueryable());
+        }
+        if (fC3ActualDataEntries is not null)
+        {
+            resultNr += Queryable.Sum(fC3ActualDataEntries.Select(x => x.Quantity).AsQueryable());
+        }
+        return resultNr.ToString("N0");
+    }
+}

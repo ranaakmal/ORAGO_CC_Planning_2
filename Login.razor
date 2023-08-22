@@ -1,0 +1,123 @@
+@* @page "/login"
+
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+@inject NavigationManager NavigationManager
+
+
+
+<PageTitle>Login - ORAGO_CC_Planning</PageTitle>
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5 mt-1 p-1 bg-dark text-white rounded">
+        <h1 class="text-center">ORAGO</h1>
+        <p class="lead text-center">Planning module</p>
+    </div>
+</div><br><br><br><br>
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5" style="text-align:center;">
+        <h1>Login with your ORAGO Account</h1>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5">
+        <input type="email" class="form-control" @bind-value="email" style="height: 60px;" placeholder=" Email"
+            required /><br>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5">
+        <input type="Password" class="form-control" @bind-value="Password" style="height: 60px;" placeholder="Password" />
+        <ValidationMessage For="@(() => Password)" />
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5">
+        @if (!string.IsNullOrEmpty(Message))
+        {
+            <div class="alert-danger">
+                <p>@Message</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5">
+            <input class="custom-checkbox" id="Remember" type="checkbox" />
+            <span > Remember me</span> 
+                <br />
+                
+    </div>
+</div><br>
+<div class="row">
+    <div class="col-md-4"></div>
+    <div class="col-md-5">
+        <button type="submit" class="btn btn-sm btn-primary m-r-15"
+            style="text-align: center; height:50px; width:100%;" @onclick="LoginUser">Login</button>
+        <div>
+            <a href="/resetPassword">Forgot your Password?</a><br>
+            <a href="/register">Register New Account</a>
+        </div>
+    </div>
+</div>
+@code
+{
+    string email = "";
+    string Password = "";
+    string Message = "";
+    
+    private async void LoginUser()
+    {
+        var user = await UserManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            Message = "User does not exist";
+            return;
+        }
+        if(user != null)
+        {
+            if(await SignInManager.CanSignInAsync(user))
+            {
+                
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, email, Password)
+            };
+            var claimsIdentity = new ClaimsIdentity(claims,
+                CookieAuthenticationDefaults.AuthenticationScheme);
+            var authProperties = new AuthenticationProperties {
+                IsPersistent = true
+            };
+                var singInResult = await SignInManager.CheckPasswordSignInAsync(user, Password, true);
+                if (singInResult == Microsoft.AspNetCore.Identity.SignInResult.Success)
+                {
+                    Guid key = Guid.NewGuid();
+                    BlazorCookieLoginMiddleware.Logins[key] = new LoginInfo { email = email, Password = Password };
+                    NavigationManager.NavigateTo($"/login?key={key}", true);
+                }
+                else
+                {
+                    Message = "Login failed. Check your password.";
+                }
+            }
+        }
+        
+         if (!singInResult.Succeeded)
+            Message = "Invalid password";
+        else
+            await SignInManager.SignInAsync(user, false); // Error occurs here
+
+        await InvokeAsync(() => StateHasChanged())
+        .ConfigureAwait(false);
+    }
+} *@

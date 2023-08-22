@@ -1,0 +1,269 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@using System.IO
+@using Syncfusion.XlsIO
+
+@using Microsoft.AspNetCore.Identity
+
+@inject IWebHostEnvironment Environment
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject UserManager<IdentityUser> _UserManager
+
+@inject ICustomerFinalRepository CustomerService
+@inject IUploadLogHeaderRepository UploadLogHeaderService
+@inject IUploadLogItemRepository UploadLogItemService
+
+<div class="row">
+    <div class="col bg-primary bg-opacity-10 p-2 rounded">
+        <SfCard>
+            <CardHeader><b class="text-center">Upload customers</b>
+            </CardHeader>
+            <CardContent EnableSeparator="true">
+                <label for="fileUploader">Select excel file to upload:</label>
+                <SfUploader id="fileUploader" AllowMultiple="false" AutoUpload="false"
+                    AllowedExtensions=".xls, .xlsx, .xlsm">
+                    <UploaderEvents ValueChange="OnChangeUpload" OnRemove="RemoveUploadedFile">
+                    </UploaderEvents>
+                </SfUploader>
+                <br>
+                <SfProgressBar Type="ProgressType.Linear" IsActive="true" Value="@FileReadProgress"
+                    Minimum="0" Maximum="3" IsStriped="false" CornerRadius="CornerType.Square">
+                </SfProgressBar>
+            </CardContent>
+            <CardFooter>
+                <p class="@UploaderMessageClass">@UploaderMessage</p>
+            </CardFooter>
+        </SfCard>
+    </div>
+</div>
+
+@code
+{
+    [Parameter] public List<int>? NewAddedIds { get; set; }
+    [Parameter] public EventCallback<List<int>?> NewAddedIdsChanged { get; set; }
+    private List<CustomerFinal>? customers;
+    private List<CustomerFinal>? Customers;
+    private string UploaderMessageClass = new string("text-primary");
+    private string UploaderMessage = new string("Waiting for customer file to upload.");
+    private int FileReadProgress = 0;
+    List<IdentityUser> ColUsers = new List<IdentityUser>();
+    private void RemoveUploadedFile(RemovingEventArgs args)
+    {
+        foreach (var removeFile in args.FilesData)
+        {
+            if (File.Exists(Path.Combine(Environment.ContentRootPath, Environment.EnvironmentName, "uploadedCustomers",
+            removeFile.Name)))
+            {
+                File.Delete(Path.Combine(Environment.ContentRootPath, Environment.EnvironmentName, "uploadedCustomers",
+                removeFile.Name));
+            }
+        }
+        UploaderMessageClass = "text-primary";
+        UploaderMessage = "File deleted from server. Waiting for next customer file to upload.";
+        FileReadProgress = 0;
+    }
+
+    private async Task OnChangeUpload(UploadChangeEventArgs args)
+    {
+        GetUsers();
+        NewAddedIds = new();
+        foreach (var file in args.Files)
+        {
+            var path = Path.Combine(Environment.ContentRootPath, Environment.EnvironmentName, "uploadedCustomers", file.FileInfo.Name);
+            FileStream filestream = new FileStream(path, FileMode.Create, FileAccess.Write);
+            file.Stream.WriteTo(filestream);
+            filestream.Close();
+
+            UploaderMessageClass = "text-info";
+            UploaderMessage = "File uploaded. Reading contents of file.";
+
+            FileReadProgress = 1;
+            StateHasChanged();
+            try
+            {
+                filestream = new FileStream(path, FileMode.Open);
+                ExcelEngine excelEngine = new ExcelEngine();
+                IWorkbook workbook = excelEngine.Excel.Workbooks.Open(filestream);
+                IWorksheet worksheet = workbook.Worksheets["Kunden"];
+                FileReadProgress = 1;
+                UploaderMessageClass = "text-info";
+                UploaderMessage = "File reading complete. Now adding customers.";
+                
+                Customers = await CustomerService.GetAllAsync();
+
+                customers = new List<CustomerFinal>();
+                //worksheet = workbook.Worksheets["Kunden"];
+                int CustomerIndex = 1;
+                int rowIndex = 1;
+                FileReadProgress = 2;
+                if (worksheet is null)
+                {
+                    UploaderMessage = "Kunden sheet not found in workbook.";
+                    UploaderMessageClass = "text-danger";
+                }
+                else
+                {
+
+                    UploadLogHeader uploadLogHeader = new()
+                        {
+                            Name = "Customers",
+                            FileName = file.FileInfo.Name
+                        };
+                    await uploadLogHeader.SetCreateInfo(authenticationStateProvider);
+                    await UploadLogHeaderService.AddEntityAsync(uploadLogHeader);
+
+                    while (worksheet.Range["C" + (rowIndex+1)].Text != null)
+                    {
+                        @* TransactionMonthlyLock = await TransactionMonthlyLockService.GetByYearMonthAsync(Convert.ToInt16(worksheet.Rows[rowIndex].Cells[6].Value), Convert.ToInt16(worksheet.Rows[rowIndex].Cells[5].Value)); *@
+
+                        UploadLogItem uploadLogItem = new()
+                            {
+                                UploadLogHeaderId = uploadLogHeader.Id,
+                                FileRowNumber = (rowIndex + 1),
+                                Result = "Checking data"
+                            };
+                        await uploadLogItem.SetCreateInfo(authenticationStateProvider);
+                        await UploadLogItemService.AddEntityAsync(uploadLogItem);
+
+                        if ( (worksheet.Range["C" + (rowIndex+1)].Text != "Entity") && (worksheet.Range["A" + (rowIndex + 1)].Value != null))
+                        {
+
+                            uploadLogItem.Result = "Creating db Item";
+                            await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                            await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+
+                            worksheet.EnableSheetCalculations();
+                            var CustomerRow = worksheet.Rows[rowIndex];
+                            string myUser = ColUsers.Where(u => u.UserName == CustomerRow.Cells[5].Text).FirstOrDefault()?.Id ?? "";
+                            var calculateCustomer = new CustomerFinal()
+                            {
+                                Entity = CustomerRow.Cells[0].Value.ToString(),
+                                BpCode = CustomerRow.Cells[1].Value.ToString(),
+                                BpName = CustomerRow.Cells[2].Value.ToString(),
+                                KeyCustomer = CustomerRow.Cells[3].Value.ToString(),
+                                Incoterm = CustomerRow.Cells[4].Value.ToString(),
+                                AssignedUser = myUser,
+                                KAM = CustomerRow.Cells[5].Value.ToString()
+                            };
+                            //Rest of the properties to be added by using Double.TryParse.
+                            //Direct conversion of sheet cell contents to double yields multiple exceptions.
+                            //Therefore used a generic variable dConverted to pop out the converted value to this variable and then assign it to
+                            //property.
+
+                            uploadLogItem.Result = "Created db Item";
+                            uploadLogItem.Entity = calculateCustomer.Entity;
+                            uploadLogItem.BPCode = calculateCustomer.BpCode;
+                            await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                            await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+
+                            var IsPresent = Customers!.Where(a =>  a.BpCode == calculateCustomer.BpCode).FirstOrDefault();
+                            if(IsPresent is not null)
+                            {
+                                if(IsPresent.Entity == "DBW China" && calculateCustomer.Entity != "DBW China")
+                                {
+                                    uploadLogItem.Result = "Original data from DBW China. Not overwritten.";
+                                    uploadLogItem.DBID = calculateCustomer.Id;
+                                    await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                                    await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+                                }
+                                else 
+                                {
+                                    if(calculateCustomer.Entity == "DBW AFT" || (IsPresent.Entity == "DBW China" && calculateCustomer.Entity == "DBW China")) 
+                                    {
+                                        calculateCustomer.Id = IsPresent.Id;
+                                        await calculateCustomer.SetModifyInfo(authenticationStateProvider);
+                                        if (await CustomerService.UpdateEntityAsync(calculateCustomer))
+                                        {
+                                            CustomerIndex += 1;
+                                            StateHasChanged();
+
+                                            uploadLogItem.Result = "New data from DBW AFT (or DBW China). Updated.";
+                                            uploadLogItem.DBID = calculateCustomer.Id;
+                                            await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                                            await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+                                        }
+                                        else
+                                        {
+                                            uploadLogItem.Result = "Update operation failed.";
+                                            uploadLogItem.DBID = calculateCustomer.Id;
+                                            await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                                            await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        uploadLogItem.Result = "New data not from DBW AFT/DBW China.";
+                                        uploadLogItem.DBID = calculateCustomer.Id;
+                                        await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                                        await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+                                    }
+                                }
+                            }
+                            else 
+                            { 
+                                await calculateCustomer.SetCreateInfo(authenticationStateProvider);
+                                if (await CustomerService.AddEntityAsync(calculateCustomer))
+                                {
+                                    worksheet.Range["A" + (rowIndex + 1)].Text = (calculateCustomer.Id).ToString();
+                                    UploaderMessageClass = "text-info";
+                                    UploaderMessage = "Customer " + CustomerIndex + " added/processed.";
+                                    NewAddedIds.Add(calculateCustomer.Id);
+                                    CustomerIndex += 1;
+                                    StateHasChanged();
+
+                                    uploadLogItem.Result = "Added new entry to db.";
+                                    uploadLogItem.DBID = calculateCustomer.Id;
+                                    await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                                    await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+                                }
+                                else
+                                {
+                                    uploadLogItem.Result = "New addition operation failed.";
+                                    uploadLogItem.DBID = calculateCustomer.Id;
+                                    await uploadLogItem.SetModifyInfo(authenticationStateProvider);
+                                    await UploadLogItemService.UpdateEntityAsync(uploadLogItem);
+                                }
+                            }
+                            worksheet.DisableSheetCalculations();
+                        }
+                        rowIndex += 1;
+                    } 
+                    UploaderMessageClass = "text-info";
+                    UploaderMessage = "Uploading Completed.";
+                    @*UploaderMessage = (CustomerIndex - 1) + " Customers added to database."; *@
+                }
+                FileReadProgress = 3;
+                workbook.Close(true);
+                excelEngine.Dispose();
+                filestream.Close();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                UploaderMessageClass = "text-danger";
+                UploaderMessage = "Error occured while reading file: " + ex.Message + " At: " + ex.Source; 
+                StateHasChanged();
+                @* return false; *@
+            }
+        }
+        customers = await Task.Run(() => CustomerService.GetAllAsync());
+        await NewAddedIdsChanged.InvokeAsync(NewAddedIds);
+    }
+
+    private void GetUsers()
+    {
+        ColUsers = new List<IdentityUser>();
+        var user = _UserManager.Users.Select(x => new IdentityUser
+            {
+                Id = x.Id,
+                UserName = x.UserName,
+                Email = x.Email,
+            });
+        foreach (var item in user)
+        {
+            ColUsers.Add(item);
+        }
+    }
+}

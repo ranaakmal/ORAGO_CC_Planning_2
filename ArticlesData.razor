@@ -1,0 +1,39 @@
+@page "/articlesdata"
+
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject IArticleRepository ArticleService
+
+<PageTitle>Articles</PageTitle>
+
+<AuthorizeView Roles = "Super user">
+    <Authorized>
+        <div class="row">
+            <h4 class="bg-dark bg-gradient text-white p-2 text-center rounded">Articles data</h4>
+        </div>
+        <div class="row">
+            <div class="col p-3">
+                <ArticleUploader @bind-NewAddedIds="SuppliedArticlesIds" />
+            </div>
+        </div>
+        <br />
+        <div class="row p-3">
+            <div class="col">
+                <ArticlesGrid @ref="ArticlesGridInstance" InterestingArticleIds="@SuppliedArticlesIds"/>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code{
+    
+    private List<int>? SuppliedArticlesIds;
+    private ArticlesGrid? ArticlesGridInstance;
+
+}

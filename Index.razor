@@ -1,0 +1,39 @@
+@page "/"
+
+@using ORAGO_CC_Planning.Models
+@using ORAGO_CC_Planning.Shared.Components3
+
+<PageTitle>Planning module</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="row">
+            <div class="col-md-3 p-2">
+                <CurrentBudgetInfo YearlyLockChanged="@NewYearlyLockSupplied"/>
+            </div>
+            <div class="col p-2">
+                <RecentEntriesInfo ProvidedYearlyLock="@suppliedYearlyLock" />
+            </div>
+        </div>
+        <div class="row">
+            <div class="col p-2">
+                <UserArticlesComponent ProvidedYearlyLock="@suppliedYearlyLock" />
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="row p-3">
+            <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code
+{
+    private YearlyLock? suppliedYearlyLock;
+    private void NewYearlyLockSupplied(YearlyLock ReceivedYearlyLock)
+    {
+        suppliedYearlyLock = new();
+        if (ReceivedYearlyLock.Id > 0) suppliedYearlyLock = ReceivedYearlyLock;
+    }
+}

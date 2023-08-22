@@ -1,0 +1,248 @@
+@page "/currenciesdata"
+
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Navigations
+@using Syncfusion.Blazor.Layouts
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject ICurrencyRepository CurrencyService
+@inject IExchangeRateRepository ExchangeRateService
+
+<PageTitle>Currencies</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="row">
+            <h4 class="bg-dark bg-gradient text-white p-2 text-center rounded">Currencies and exchange rates</h4>
+        </div>
+        <br />
+        <div class="row">
+            <SfDashboardLayout CellSpacing="@(new double[]{10 ,10 })" CellAspectRatio="16/9" Columns="12" AllowDragging="false" AllowResizing="true">
+                <DashboardLayoutPanels>
+                    <DashboardLayoutPanel SizeX=4 SizeY=6>
+                        <HeaderTemplate>
+                            <div class="bg-dark bg-gradient text-white text-center rounded p-1">Currencies</div>
+                        </HeaderTemplate>
+                        <ContentTemplate>
+                            <div class="p-2">
+                                @if (CurrencyService.ListLoading)
+                                {
+                                    <em class="text-info text-center">Loading CurrencySs...</em>
+                                }
+                                else
+                                {
+                                    @if (CurrencyService.ListNotFound)
+                                    {
+                                        <em class="text-danger text-center">No Currencyroups found in database</em>
+                                    }
+                                    else
+                                    {
+                                        <SfGrid id="CurrencysGrid" DataSource="@currencies" TValue="Currency" AllowPaging="true"
+                                        Toolbar="@(new List<string>() { "Add", "Edit", "Cancel", "Update" })">
+                                            <GridEditSettings AllowAdding="true" AllowDeleting="false" AllowEditing="true"
+                                                Mode="EditMode.Normal">
+                                            </GridEditSettings>
+                                                <GridPageSettings PageSize="10">
+
+                                            </GridPageSettings>
+                                            <GridColumns>
+                                                <GridColumn Field=@nameof(Currency.Id)
+                                                    IsPrimaryKey="true"
+                                                    ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                                    Visible="false">
+                                                </GridColumn>
+                                                <GridColumn Field=@nameof(Currency.Name)
+                                                    ValidationRules="@(new ValidationRules{ Required=false})"
+                                                    Width="auto">
+                                                </GridColumn>                   
+                                                <GridColumn Field=@nameof(Currency.ISOCode)
+                                                    ValidationRules="@(new ValidationRules{ Required=true})"
+                                                    Width="auto">
+                                                </GridColumn>                   
+                                            </GridColumns>
+                                            <GridEvents OnActionBegin="CurrencyActionBeginHandler" OnActionComplete="CurrencyActionCompleteHandler" RowSelected="CurrencySelected" TValue="Currency"></GridEvents>
+                                        </SfGrid>
+                                    }
+                                }
+                            </div>
+                        </ContentTemplate>
+                    </DashboardLayoutPanel>
+                    <DashboardLayoutPanel SizeX=8 SizeY=6 Column=4>
+                        <HeaderTemplate>
+                            <div class="bg-dark bg-gradient text-white text-center rounded p-1">Exchange rates</div>
+                        </HeaderTemplate>
+                        <ContentTemplate>
+                            <div class="p-2">
+                                @if ((selectedCurrency is null) || (selectedCurrency.Id == 0))
+                                {
+                                    <p class="text-primary text-center">Please select a currency</p>
+                                }
+                                else
+                                {
+                                    @if (ExchangeRateService.ListLoading)
+                                    {
+                                        <em class="text-info text-center">Loading ExchangeRates...</em>
+                                    }
+                                    else
+                                    {
+                                        @if (ExchangeRateService.ListNotFound)
+                                        {
+                                            <em class="text-danger text-center">No ExchangeRates found in database</em>
+                                        }
+                                        else
+                                        {
+                                            <SfGrid id="ExchangeRatesGrid" DataSource="@exchangeRates" TValue="ExchangeRate" AllowPaging="true"
+                                            Toolbar="@(new List<string>() { "Add", "Edit", "Cancel", "Update" })">
+                                                <GridEditSettings AllowAdding="true" AllowDeleting="false" AllowEditing="true"
+                                                    Mode="EditMode.Normal">
+                                                </GridEditSettings>
+                                                <GridPageSettings PageSize="10">
+
+                                                </GridPageSettings>
+                                                <GridColumns>
+                                                    <GridColumn Field=@nameof(ExchangeRate.Id)
+                                                        IsPrimaryKey="true"
+                                                        ValidationRules="@(new ValidationRules{ Required=true, Number=true})"
+                                                        Visible="false">
+                                                    </GridColumn>
+                                                    <GridColumn Field=@nameof(ExchangeRate.FromCurrencyCode)
+                                                        ValidationRules="@(new ValidationRules{ Required=false})"
+                                                        Width="auto" DefaultValue="selectedCurrency.ISOCode" Visible=false>
+                                                    </GridColumn>                   
+                                                    <GridForeignColumn Field=@nameof(ExchangeRate.ToCurrencyCode)
+                                                        ForeignKeyValue="ISOCode" ForeignKeyField="ISOCode"
+                                                        ValidationRules="@(new ValidationRules{ Required=true})"
+                                                        ForeignDataSource="@currencies" Width="auto">
+                                                    </GridForeignColumn>
+                                                    <GridColumn Field=@nameof(ExchangeRate.ExchangeYear)
+                                                        ValidationRules="@(new ValidationRules{ Required=true, Number=true, Max=3000, Min=2000})"
+                                                        Width="auto" DefaultValue=@(DateTime.Now.Year) EditorSettings="@(NumericEditParams)">
+                                                    </GridColumn> 
+                                                    <GridColumn Field=@nameof(ExchangeRate.ExchangeValue) Format="N4"
+                                                        ValidationRules="@(new ValidationRules{ Required=false, Number=true})"
+                                                        Width="auto" DefaultValue=1.00 EditorSettings="@(NumericEditParams)">
+                                                    </GridColumn>  
+                                                    <GridColumn Field=@nameof(ExchangeRate.ReportingExchangeValue) Format="N4"
+                                                        ValidationRules="@(new ValidationRules{ Required=false, Number=true})"
+                                                        Width="auto" DefaultValue=1.00 EditorSettings="@(NumericEditParams)">
+                                                    </GridColumn>
+                                                </GridColumns>
+                                                <GridEvents OnActionBegin="ExchangeRateActionBeginHandler" OnActionComplete="ExchangeRateActionCompleteHandler" TValue="ExchangeRate"></GridEvents>
+                                            </SfGrid>
+                                        }
+                                    }
+                                }
+                            </div>
+                        </ContentTemplate>
+                    </DashboardLayoutPanel>
+
+                </DashboardLayoutPanels>
+            </SfDashboardLayout>
+
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code{
+    private List<Currency>? currencies;
+    private Currency? selectedCurrency;
+    private List<ExchangeRate>? exchangeRates;
+    public IEditorSettings NumericEditParams = new NumericEditCellParams
+    {
+        Params = new NumericTextBoxModel<object>() { ShowClearButton= false, ShowSpinButton = false }
+    };
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CurrencyService.ListLoading)
+        {
+            currencies = await CurrencyService.GetAllAsync();
+        }
+    }
+    private async Task CurrencyActionBeginHandler(ActionEventArgs<Currency> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (Args.Action == "Add")
+            {
+                await Args.Data.SetCreateInfo(authenticationStateProvider);
+                await CurrencyService.AddEntityAsync(Args.Data);
+            }
+            else
+            {
+                await Args.Data.SetModifyInfo(authenticationStateProvider);
+                await CurrencyService.UpdateEntityAsync(Args.Data);
+            }
+        }
+    }
+
+    private async Task CurrencyActionCompleteHandler(ActionEventArgs<Currency> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            await CurrencyService.GetAllAsync();
+        }
+    }
+
+    private async Task CurrencySelected(RowSelectEventArgs<Currency> Args)
+    {
+        selectedCurrency = await CurrencyService.GetByIdAsync(Args.Data.Id);
+        if ((!ExchangeRateService.ListLoading) && (selectedCurrency.ISOCode is not null))
+        {
+            exchangeRates = await ExchangeRateService.GetByCurrencyAsync(selectedCurrency.ISOCode);
+        }
+    }
+    private async Task ExchangeRateActionBeginHandler(ActionEventArgs<ExchangeRate> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            if (Args.Action == "Add")
+            {
+                await Args.Data.SetCreateInfo(authenticationStateProvider);
+                ExchangeRate invertedCombination = new()
+                {
+                    FromCurrencyCode = Args.Data.ToCurrencyCode,
+                    ToCurrencyCode = Args.Data.FromCurrencyCode,
+                    ExchangeYear = Args.Data.ExchangeYear,
+                    ExchangeValue = (Args.Data.ExchangeValue != 0 ? 1/Args.Data.ExchangeValue : 0),
+                    ReportingExchangeValue = (Args.Data.ReportingExchangeValue != 0 ? 1/Args.Data.ReportingExchangeValue : 0)
+                };
+                await invertedCombination.SetCreateInfo(authenticationStateProvider);
+                await ExchangeRateService.AddEntityAsync(invertedCombination);
+                await ExchangeRateService.AddEntityAsync(Args.Data);
+            }
+            else
+            {
+                await Args.Data.SetModifyInfo(authenticationStateProvider);
+                ExchangeRate invertedCombination = await ExchangeRateService.GetByCurrencyPairYearAsync(Args.Data.ToCurrencyCode!, Args.Data.FromCurrencyCode!, Args.Data.ExchangeYear);
+                if (invertedCombination.Id != 0) 
+                {
+                    invertedCombination.ExchangeValue = (Args.Data.ExchangeValue != 0 ? 1/Args.Data.ExchangeValue : 0);
+                    invertedCombination.ReportingExchangeValue = (Args.Data.ReportingExchangeValue != 0 ? 1/Args.Data.ReportingExchangeValue : 0);
+                    await invertedCombination.SetModifyInfo(authenticationStateProvider);
+                    await ExchangeRateService.UpdateEntityAsync(invertedCombination);
+                }
+                else
+                {
+                    await ExchangeRateService.AddEntityAsync( new() { FromCurrencyCode = Args.Data.ToCurrencyCode, ToCurrencyCode = Args.Data.ToCurrencyCode, ExchangeYear = Args.Data.ExchangeYear, ExchangeValue = (Args.Data.ExchangeValue!=0 ? 1/Args.Data.ExchangeValue : 0)});
+                }
+                await ExchangeRateService.UpdateEntityAsync(Args.Data);
+            }
+        }
+    }
+
+    private async Task ExchangeRateActionCompleteHandler(ActionEventArgs<ExchangeRate> Args)
+    {
+        if (Args.RequestType.Equals(Syncfusion.Blazor.Grids.Action.Save))
+        {
+            await ExchangeRateService.GetAllAsync();
+        }
+    }
+
+}

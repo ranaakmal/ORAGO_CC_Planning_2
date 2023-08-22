@@ -1,0 +1,627 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject IArticleFinalRepository ArticleService
+@inject ICurrencyRepository CurrencyService
+@inject ICustomerFinalRepository CustomerService
+@inject IExchangeRateRepository ExchangeRateService
+@inject ITransactionRepository TransactionService
+@inject IBudgetEntryRepository BudgetEntryService
+@inject IYearlyLockRepository YearlyLockService
+@inject IBudgetCurrencyRepository BudgetCurrencyService
+@inject IVolumeTemplateRepository VolumeTemplateService
+@inject IEntityLocalCurrencyRepository EntityLocalCurrencyService
+
+<div class="row p-2">
+    <div class="col bg-primary bg-opacity-10 p-2 rounded">
+        <SfCard>
+            <CardHeader><b class="text-center">Select budget version</b></CardHeader>
+            <CardContent EnableSeparator="true">
+                <div class="row p-2">
+                    <div class="col-2 text-center">
+                        @* <SfButton CssClass="e-primary" OnClick="@(() => Task.Run(BudgetYearDecrement))" IconCss="e-icons e-chevron-left"></SfButton> *@
+                    </div>
+                    <div class="col-8 text-center">
+                        <p class="lead text-center">
+                            <AuthorizeView Roles="Super user">
+                                <Authorized Context="padLockContext">
+                                    @budgetStartYear -  @(budgetStartYear + 1) - 
+                                    @if (yearlyLock is not null && yearlyLock.IsLocked)
+                                    {
+                                        @* <span class="oi oi-lock-locked text-primary" onclick="@(()=> Task.Run(ToggleYearlyLock))"></span> *@
+                                        <span class="oi oi-lock-locked text-info"></span>
+                                    }
+                                    @if (yearlyLock is not null && !yearlyLock.IsLocked)
+                                    {
+                                        @* <span class="oi oi-lock-unlocked text-primary" onclick="@(()=> Task.Run(ToggleYearlyLock))"></span> *@
+                                        <span class="oi oi-lock-unlocked text-info"></span>
+                                    }
+                                </Authorized>
+                                <NotAuthorized Context="padLockContext">
+                                    @budgetStartYear -  @(budgetStartYear + 1) - 
+                                    @if (yearlyLock is not null && yearlyLock.IsLocked)
+                                    {
+                                        <span class="oi oi-lock-locked text-info"></span>
+                                    }
+                                    @if (yearlyLock is not null && !yearlyLock.IsLocked)
+                                    {
+                                        <span class="oi oi-lock-unlocked text-info"></span>
+                                    }
+                                </NotAuthorized>
+                            </AuthorizeView>
+                        </p>
+                    </div>
+                    <div class="col-2 text-center">
+                        @* <SfButton CssClass="e-primary" OnClick="@(() => Task.Run(BudgetYearIncrement))" IconCss="e-icons e-chevron-right"></SfButton> *@
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="col">
+                        @if (YearlyLockService.ListLoading)
+                        {
+                            <div class="bg-info text-white p-3 rounded lead">Versions loading...</div>
+                        }
+                        else
+                        {
+                            if (yearlyLocks is null || yearlyLockId== 0)
+                            {
+                                <div class="text-danger p-3 rounded lead">Versions not found in database.</div>
+                            }
+                            else
+                            {
+                                <SfDropDownList TValue="int" Placeholder="Budget version" @bind-Value="@yearlyLockId" DataSource="yearlyLocks" 
+                                    TItem="YearlyLock" FloatLabelType="FloatLabelType.Auto" AllowFiltering="true" Enabled="false">
+                                    <DropDownListEvents TItem="YearlyLock" TValue="int" ValueChange="@YearlyLockSelected" ></DropDownListEvents>
+                                    <DropDownListFieldSettings Text="Description" Value="Id"></DropDownListFieldSettings>
+                                </SfDropDownList>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="col">
+                        @if (EntityLocalCurrencyService.ListLoading)
+                        {
+                            <em class="text-info text-center">Loading entities...</em>
+                        }
+                        else
+                        {
+                            @if (EntityLocalCurrencyService.ListNotFound)
+                            {
+                                <em class="text-danger text-center">No entities found in database</em>
+                            }
+                            else
+                            {
+                                <SfDropDownList TValue="string" Placeholder="Entity" @bind-Value="@dbwEntity" DataSource="dbwEntities" 
+                                    TItem="string" FloatLabelType="FloatLabelType.Auto" AllowFiltering="true">
+                                    <DropDownListEvents TItem="string" TValue="string" ValueChange="@EntitySelected" ></DropDownListEvents>
+                                </SfDropDownList>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="col">
+                        @if (dbwEntity is null)
+                        {
+                            <p class="text-primary text-center">Please select an entity</p>
+                        }
+                        else
+                        {
+                            if (CustomerService.ListLoading)
+                            {
+                                <div class="bg-info text-white p-3 rounded lead">Customers loading...</div>
+                            }
+                            else
+                            {
+                                if (customer is null)
+                                {
+                                    <div class="text-danger p-3 rounded lead">Customers not found in database.</div>
+                                }
+                                else
+                                {
+                                    <SfDropDownList TValue="int" Placeholder="CustomerFinal" @bind-Value="@customerId" DataSource="customers" 
+                                        TItem="CustomerFinal" FloatLabelType="FloatLabelType.Auto" AllowFiltering="true">
+                                        <DropDownListEvents TItem="CustomerFinal" TValue="int" ValueChange="@CustomerSelected" ></DropDownListEvents>
+                                        <DropDownListFieldSettings Text="BpName" Value="Id"></DropDownListFieldSettings>
+                                    </SfDropDownList>
+                                }
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="row p-2">
+                    <div class="col-10">
+                        @if (customer is null)
+                        {
+                            <p class="text-primary text-center">Please select a customer</p>
+                        }
+                        else
+                        {
+                            if (ArticleService.ListLoading)
+                            {
+                                <em class="text-info text-center">Loading articles...</em>
+                            }
+                            else
+                            {
+                                @if (article is null)
+                                {
+                                    <em class="text-danger text-center">No relevant articles found in database</em>
+                                }
+                                else
+                                {
+                                    <SfDropDownList TValue="int" Placeholder="ArticleFinal" @bind-Value="@articleId" DataSource="articles" 
+                                        TItem="ArticleFinal" FloatLabelType="FloatLabelType.Auto" AllowFiltering="true">
+                                        <DropDownListEvents TItem="ArticleFinal" TValue="int" ValueChange="@ArticleSelected" ></DropDownListEvents>
+                                        <DropDownListFieldSettings Text="ItemNo" Value="Id"></DropDownListFieldSettings>
+                                        <DropDownListTemplates TItem="ArticleFinal">
+                                            <ValueTemplate Context="article">
+                                                <span>@(article?.ItemNo) - @(article?.ItemDescription)</span>
+                                            </ValueTemplate>
+                                            <ItemTemplate Context="article">
+                                                <span>@(article?.ItemNo) @(article?.ItemDescription)</span>
+                                            </ItemTemplate>
+                                        </DropDownListTemplates>
+                                    </SfDropDownList>
+                                }
+                            }
+                        }
+
+                    </div>
+                    <div class="col-2">            
+                        @* <SfSwitch @bind-Checked ="isChecked" OffLabel="OFF" OnLabel="ON" ValueChange="TogglePlanComplete" TChecked="bool?"></SfSwitch> *@
+                        @* @if (article is not null && article.Id != 0 && budgetCurrency is not null && budgetCurrency.Id != 0)
+                            {
+                                if (budgetCurrency.PlanningComplete) 
+                                { 
+                                    <span class="oi oi-check text-primary" onclick="@(()=> Task.Run(TogglePlanComplete))"></span>
+                                }
+                                    else
+                                    {
+                                        <div class="oi oi-pencil text-warning" onclick="@(()=> Task.Run(TogglePlanComplete))"></div>
+                                    }
+                                } *@
+                    </div>
+                </div>
+                <div class="row" >
+                    <div class="col-2" style="margin: 7px ;">Status </div>
+                    <div class="col">
+                        @if (article is not null && article.Id != 0 && budgetCurrency is not null &&
+                            budgetCurrency.Id != 0)
+                        {
+                            if (budgetCurrency.PlanningComplete)
+                            {
+                                <span class="oi oi-check text-success" onclick="@(()=> Task.Run(TogglePlanComplete))"> Complete</span>
+                            }
+                            else
+                            {
+                                <div class="oi oi-pencil text-warning" onclick="@(()=> Task.Run(TogglePlanComplete))"> Incomplete</div>
+                            }
+                        }
+                    </div>
+                </div>
+            </CardContent>
+        </SfCard>
+    </div>
+</div>
+@code
+{ 
+    [Parameter] public EventCallback<CustomerFinal?> SelectedCustomer { get; set; }
+    [Parameter] public EventCallback<ArticleFinal?> SelectedArticle { get; set; }
+    [Parameter] public EventCallback<BudgetCurrency?> SelectedBudgetCurrency { get; set; }
+    private int budgetStartYear {get; set; } = DateTime.Now.Year + 1;
+    private int actualDataYear { get; set; } = DateTime.Now.Year - 1;
+    private List<CustomerFinal>? customers;
+    private CustomerFinal? customer; 
+    private int customerId;
+    private List<ArticleFinal>? articles;
+    private ArticleFinal? article;
+    private int articleId;
+    private List<ActualDataEntry>? actualDataEntries;
+    private List<BudgetEntry>? budgetEntries;
+    private BudgetEntry? budgetEntry;
+    private int budgetEntryId;
+    private List<YearlyLock>? yearlyLocks;
+    private int yearlyLockId;
+    private YearlyLock? yearlyLock;
+    private List<ActualDataEntry>? fC1ActualDataEntries;
+    private List<ActualDataEntry>? fC2ActualDataEntries;
+    private List<ActualDataEntry>? fC3ActualDataEntries;
+    private BudgetCurrency? budgetCurrency;
+    private List<EntityLocalCurrency>? entityLocalCurrencies;
+    private List<Currency>? currencies;
+    public List<ExchangeRate>? exchangeRates;   //needs to be accessed from within grids therefore public
+    public double xRDL0 = 1;    //Document currency to Local currency year 1
+    public double xRDE0 = 1;    //Document currency to EUR year 1
+    public double xRDL1 = 1;    //Document currency to Local currency year 1
+    public double xRDE1 = 1;    //Document currency to EUR year 1
+    public double xRDL2 = 1;    //Document currency to Local currency year 1
+    public double xRDE2 = 1;    //Document currency to EUR year 1
+    public List<string>? dbwEntities;
+    public string? dbwEntity;
+
+    public class ActualDataEntry
+    {
+        public ActualDataEntry(int _yearName, int _durationNr)
+        {
+            this.DurationNr = _durationNr;
+            if (this.DurationNr > 24)
+            {
+                this.MonthName = DateTime.Parse("2000, " + (this.DurationNr - 24).ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr - 24;
+                this.YearName = _yearName + 2;
+            }
+            else if (this.DurationNr > 12)
+            {
+                this.MonthName = DateTime.Parse("2000, " + (this.DurationNr - 12).ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr - 12;
+                this.YearName = _yearName + 1;
+            }
+            else
+            {
+                this.MonthName = DateTime.Parse("2000, " + this.DurationNr.ToString() + ", 1").ToString("MMM");
+                this.MonthNr = DurationNr;
+                this.YearName = _yearName;
+            }
+        }
+        public int DurationNr { get; set; }
+        public int MonthNr { get; set; }
+        public string? MonthName { get; set; }
+        public int YearName { get; set; }
+        public double Quantity { get; set; }
+        public double SalesLC { get; set; }
+        public double SurchargeLC { get; set; }
+        public double SalesDC { get; set; }
+        public double SurchargeDC { get; set; }
+    } 
+    private List<ArticleFinal>? userArticles;
+    private int countTotalArticles;
+    private int countCompleteArticles;
+    private int countIncompleteAeticles;
+    private List<BudgetEntry>? userBudgetEntries;
+    private List<BudgetEntry>? interestingBudgetEntries;
+    private List<BudgetEntry>? completedBudgetEntries;
+    private List<BudgetEntry>? incompleteBudgetEntries;         
+    protected override async Task OnInitializedAsync()
+    {
+        dbwEntities = await CustomerService!.GetEntitiesListAsync();
+        yearlyLocks = await YearlyLockService!.GetByYearAsync(budgetStartYear);
+        if (yearlyLocks is not null) yearlyLock = yearlyLocks.Where(l => l.IsLocked == false).FirstOrDefault();
+        if (yearlyLock is not null) yearlyLockId = yearlyLock.Id;
+        customers = await CustomerService!.GetAllAsync();
+        customer = await CustomerService.GetByIdAsync(customerId);
+        articles = await ArticleService!.GetAllAsync();
+        currencies = await CurrencyService!.GetAllAsync();
+        entityLocalCurrencies = await EntityLocalCurrencyService!.GetAllAsync();
+        budgetEntries = await BudgetEntryService!.GetAllAsync();
+        budgetEntry = await BudgetEntryService!.GetByIdAsync(budgetEntryId);         
+        await FetchUserCustomerArticles(customer);        
+    }
+    public async Task FetchUserCustomerArticles(CustomerFinal givenCustomer)
+    {
+        userArticles = new();
+        interestingBudgetEntries = new();
+        userBudgetEntries = new();
+        completedBudgetEntries = new();
+        incompleteBudgetEntries = new();
+        countCompleteArticles = 0;
+        countIncompleteAeticles = 0;
+        countTotalArticles = 0;
+        if ((givenCustomer.BpCode is not null) && (givenCustomer.Id != 0))
+        {
+            List<String?> articleNames = await TransactionService!.GetArticleNamesByCustomerAsync(givenCustomer.BpCode);
+            foreach (string? articleName in articleNames)
+            {
+                if (!ArticleService!.ListLoading)
+                {
+                    ArticleFinal article = await ArticleService.GetByItemNrAsync(articleName);
+                    if ((article is not null) && (article.Id != 0))
+                     {
+                        userArticles.Add(article);
+                        List<BudgetEntry> itsBudgetEntries = await BudgetEntryService!.GetByYearVersionCustomerArticleForIndexAsync(budgetStartYear,
+                        article, givenCustomer, yearlyLock?.Name);
+                        itsBudgetEntries = itsBudgetEntries.Where(e => e.DurationNumber == 13).ToList();
+                        userBudgetEntries?.AddRange(itsBudgetEntries);
+                        BudgetCurrency itsBudgetCurrency = await BudgetCurrencyService!.GetByYearVersionCustomerArticleAsync(budgetStartYear,
+                        article, givenCustomer, yearlyLock?.Name);
+                        if (itsBudgetCurrency.PlanningComplete)
+                        {
+                            countCompleteArticles++;
+                            completedBudgetEntries.AddRange(itsBudgetEntries);
+                        }
+                        else
+                        {
+                            countIncompleteAeticles++;
+                            incompleteBudgetEntries.AddRange(itsBudgetEntries);
+                        }
+                    }
+                }
+            }
+        }
+        interestingBudgetEntries = userBudgetEntries;
+        countTotalArticles = userArticles.Count();
+    }
+    private async Task CustomerSelected(ChangeEventArgs<int, CustomerFinal> args)
+    {
+        article = new();
+        articles = new();
+        budgetEntries = new();
+        actualDataEntries = new();
+        fC1ActualDataEntries = new();
+        fC2ActualDataEntries = new();
+        fC3ActualDataEntries = new();
+        budgetCurrency = new();
+        if ((!CustomerService!.SingleLoading) && (customerId != 0))
+        {
+            customer = await CustomerService.GetFullByIdAsync(customerId);
+            await SelectedCustomer.InvokeAsync(customer);
+        }
+        if (customer is not null && customer.BpCode is not null)
+        {
+            ArticleService!.ListLoading = true;
+            var articleNames = await TransactionService!.GetArticleNamesByCustomerAsync(customer.BpCode);
+            articles = new();
+            foreach (string? articleName in articleNames)
+            {
+                if (!ArticleService.SingleLoading)
+                {
+                    ArticleFinal article = await ArticleService.GetByItemNrAsync(articleName);
+                    if (article is not null) articles.Add(article);
+                }
+            }
+            ArticleService.ListLoading = false;
+            List<ArticleFinal>? dummyArticles = await ArticleService.GetDummyByCustomerAsync(customer.BpCode);
+            if (dummyArticles is not null) articles.AddRange(dummyArticles);
+        }
+    }
+    private async Task EntitySelected(ChangeEventArgs<string, string> args)
+    {
+        if (!CustomerService!.ListLoading) customers = await CustomerService.GetByLoggedInUserAndEntity(authenticationStateProvider!, dbwEntity);
+        if(customer is null && article is null)
+        {
+            customer = new();
+            article = new();
+            budgetEntries = new();
+            actualDataEntries = new();
+            fC1ActualDataEntries = new();
+            fC2ActualDataEntries = new();
+            fC3ActualDataEntries = new();
+            budgetCurrency = new();
+        }
+    }  
+    private async Task ArticleSelected(ChangeEventArgs<int, ArticleFinal> args)
+    {
+        budgetCurrency = new();
+        budgetEntries = new();
+        if ((!ArticleService!.SingleLoading) && (articleId != 0))
+        {
+            article = await ArticleService.GetFullByIdAsync(articleId);
+            await SelectedArticle.InvokeAsync(article);
+            await PopulateActualDataAsync();
+            if (!BudgetEntryService!.ListLoading && customer is not null && article is not null && yearlyLock is not null)
+            {
+                budgetEntries = await BudgetEntryService.GetByYearVersionCustomerArticleAsync(budgetStartYear, article, customer, yearlyLock.Name, authenticationStateProvider);
+                budgetCurrency = await BudgetCurrencyService!.GetByYearVersionCustomerArticleAsync(budgetStartYear, article, customer, yearlyLock.Name);
+                await SelectedBudgetCurrency.InvokeAsync(budgetCurrency);
+                @* await SelectedBudgetEntry.InvokeAsync(budgetEntry);  *@
+                await PopulateFC1ActualDataAsync();
+                await PopulateFC2ActualDataAsync();
+                await PopulateFC3ActualDataAsync();
+                await LoadCurrencyInfoAsync();
+            }
+        }
+    }
+    private async Task YearlyLockSelected(ChangeEventArgs<int, YearlyLock> args)
+    {
+        if (!YearlyLockService!.SingleLoading) yearlyLock = await YearlyLockService.GetByIdAsync(args.ItemData.Id);
+        budgetEntries = new();
+        budgetCurrency = new();
+        if (!BudgetEntryService!.ListLoading && customer is not null && article is not null && yearlyLock is not null)
+        {
+            budgetEntries = await BudgetEntryService.GetByYearVersionCustomerArticleAsync(budgetStartYear, article, customer, yearlyLock.Name, authenticationStateProvider);
+            budgetCurrency = await BudgetCurrencyService!.GetByYearVersionCustomerArticleAsync(budgetStartYear, article, customer, yearlyLock.Name);
+            await PopulateFC1ActualDataAsync();
+            await PopulateFC2ActualDataAsync();
+            await PopulateFC3ActualDataAsync();
+            await LoadCurrencyInfoAsync();
+        }
+    }
+    public async Task TogglePlanComplete()
+    {
+        budgetCurrency!.PlanningComplete = !budgetCurrency.PlanningComplete;
+        await budgetCurrency.SetModifyInfo(authenticationStateProvider!);
+        await BudgetCurrencyService!.UpdateEntityAsync(budgetCurrency);
+    }
+        protected async Task PopulateActualDataAsync()
+        {
+            actualDataEntries = new();
+            if ((customer is not null) && (article is not null) && (customer.BpCode != "") && (article.ItemNo != "") && (customer.BpCode is not null) && (article.ItemNo is not null))
+            {
+                for (int actualDataGenerator = 1; actualDataGenerator <= 12; actualDataGenerator++)
+                {
+                    ActualDataEntry actualDataEntry = new ActualDataEntry(actualDataYear, actualDataGenerator);
+                    var itsTransactions = await TransactionService!.GetForActualDataAsync(customer.BpCode, article.ItemNo, actualDataEntry.MonthNr, actualDataEntry.YearName);
+                    if (itsTransactions is not null)
+                    {
+                        actualDataEntry.Quantity = itsTransactions.Sum(t => t.Quantity);
+                        actualDataEntry.SalesLC = itsTransactions.Sum(t => t.SalesLc + t.SurchargeLc);
+                        actualDataEntry.SalesDC = itsTransactions.Sum(t => t.SalesDc + t.SurchargeDc);
+                        if (actualDataEntry.Quantity != 0)
+                        {
+                            actualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / actualDataEntry.Quantity;
+                            actualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / actualDataEntry.Quantity;
+                        }
+                        else
+                        {
+                            actualDataEntry.SurchargeLC = 0;
+                            actualDataEntry.SurchargeDC = 0;
+                        }
+                    }
+                    actualDataEntries.Add(actualDataEntry);
+                }
+            }
+        }
+        protected async Task PopulateFC1ActualDataAsync()
+        {
+            fC1ActualDataEntries = new();
+            if ((customer is not null) && (article is not null) && (customer.BpCode != "") && (article.ItemNo != "") && (customer.BpCode is not null) && (article.ItemNo is not null))
+            {
+                for (int actualDataGenerator = 1; actualDataGenerator <= 3; actualDataGenerator++)
+                {
+                    ActualDataEntry fC1ActualDataEntry = new ActualDataEntry(budgetStartYear - 1, actualDataGenerator);
+                    var itsTransactions = await TransactionService!.GetForActualDataAsync(customer.BpCode, article.ItemNo, fC1ActualDataEntry.MonthNr, fC1ActualDataEntry.YearName);
+                    if (itsTransactions is not null)
+                    {
+                        fC1ActualDataEntry.Quantity = itsTransactions.Sum(t => t.Quantity);
+                        fC1ActualDataEntry.SalesLC = itsTransactions.Sum(t => t.SalesLc + t.SurchargeLc);
+                        fC1ActualDataEntry.SalesDC = itsTransactions.Sum(t => t.SalesDc + t.SurchargeDc);
+                        fC1ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC1ActualDataEntry.Quantity;
+                        fC1ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC1ActualDataEntry.Quantity;
+                        if (fC1ActualDataEntry.Quantity != 0)
+                        {
+                            fC1ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC1ActualDataEntry.Quantity;
+                            fC1ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC1ActualDataEntry.Quantity;
+                        }
+                        else
+                        {
+                            fC1ActualDataEntry.SurchargeLC = 0;
+                            fC1ActualDataEntry.SurchargeDC = 0;
+                        }
+                    }
+                    fC1ActualDataEntries.Add(fC1ActualDataEntry);
+                }
+            }
+        }
+        protected async Task PopulateFC2ActualDataAsync()
+        {
+            fC2ActualDataEntries = new();
+            if ((customer is not null) && (article is not null) && (customer.BpCode != "") && (article.ItemNo != "") && (customer.BpCode is not null) && (article.ItemNo is not null))
+            {
+                for (int actualDataGenerator = 1; actualDataGenerator <= 6; actualDataGenerator++)
+                {
+                    ActualDataEntry fC2ActualDataEntry = new ActualDataEntry(budgetStartYear - 1, actualDataGenerator);
+                    var itsTransactions = await TransactionService!.GetForActualDataAsync(customer.BpCode, article.ItemNo, fC2ActualDataEntry.MonthNr, fC2ActualDataEntry.YearName);
+                    if (itsTransactions is not null)
+                    {
+                        fC2ActualDataEntry.Quantity = itsTransactions.Sum(t => t.Quantity);
+                        fC2ActualDataEntry.SalesLC = itsTransactions.Sum(t => t.SalesLc + t.SurchargeLc);
+                        fC2ActualDataEntry.SalesDC = itsTransactions.Sum(t => t.SalesDc + t.SurchargeDc);
+                        fC2ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC2ActualDataEntry.Quantity;
+                        fC2ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC2ActualDataEntry.Quantity;
+                        if (fC2ActualDataEntry.Quantity != 0)
+                        {
+                            fC2ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC2ActualDataEntry.Quantity;
+                            fC2ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC2ActualDataEntry.Quantity;
+                        }
+                        else
+                        {
+                            fC2ActualDataEntry.SurchargeLC = 0;
+                            fC2ActualDataEntry.SurchargeDC = 0;
+                        }
+                    }
+                    fC2ActualDataEntries.Add(fC2ActualDataEntry);
+                }
+            }
+        }
+        protected async Task PopulateFC3ActualDataAsync()
+        {
+            fC3ActualDataEntries = new();
+            if ((customer is not null) && (article is not null) && (customer.BpCode != "") && (article.ItemNo != "") && (customer.BpCode is not null) && (article.ItemNo is not null))
+            {
+                for (int actualDataGenerator = 1; actualDataGenerator <= 9; actualDataGenerator++)
+                {
+                    ActualDataEntry fC3ActualDataEntry = new ActualDataEntry(budgetStartYear - 1, actualDataGenerator);
+                    var itsTransactions = await TransactionService!.GetForActualDataAsync(customer.BpCode, article.ItemNo, fC3ActualDataEntry.MonthNr, fC3ActualDataEntry.YearName);
+                    if (itsTransactions is not null)
+                    {
+                        fC3ActualDataEntry.Quantity = itsTransactions.Sum(t => t.Quantity);
+                        fC3ActualDataEntry.SalesLC = itsTransactions.Sum(t => t.SalesLc + t.SurchargeLc);
+                        fC3ActualDataEntry.SalesDC = itsTransactions.Sum(t => t.SalesDc + t.SurchargeDc);
+                        fC3ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC3ActualDataEntry.Quantity;
+                        fC3ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC3ActualDataEntry.Quantity;
+                        if (fC3ActualDataEntry.Quantity != 0)
+                        {
+                            fC3ActualDataEntry.SurchargeLC = itsTransactions.Sum(t => t.SurchargeLc) / fC3ActualDataEntry.Quantity;
+                            fC3ActualDataEntry.SurchargeDC = itsTransactions.Sum(t => t.SurchargeDc) / fC3ActualDataEntry.Quantity;
+                        }
+                        else
+                        {
+                            fC3ActualDataEntry.SurchargeLC = 0;
+                            fC3ActualDataEntry.SurchargeDC = 0;
+                        }
+                    }
+                    fC3ActualDataEntries.Add(fC3ActualDataEntry);
+                }
+            }
+        }
+        protected async Task LoadCurrencyInfoAsync()
+        {
+            if (customer is not null && article is not null && customer.BpCode is not null && article.ItemNo is not null && budgetCurrency is not null && dbwEntity is not null)
+            {
+                var interestingCurrencies = await EntityLocalCurrencyService!.GetByEntityAsync(dbwEntity);
+                if (budgetCurrency.DocumentCurrencyCode is null) budgetCurrency.DocumentCurrencyCode = interestingCurrencies.DocumentCurrencyCode;
+                if (budgetCurrency.LocalCurrencyCode is null) budgetCurrency.LocalCurrencyCode = interestingCurrencies.LocalCurrencyCode;
+                await budgetCurrency.SetModifyInfo(authenticationStateProvider!);
+                await BudgetCurrencyService!.UpdateEntityAsync(budgetCurrency);
+                await LoadExchangeRatesAsync();
+            }
+        }
+        protected async Task LoadExchangeRatesAsync()
+        {
+            exchangeRates = new();
+            if (budgetCurrency is not null && budgetCurrency.DocumentCurrencyCode is not null && budgetCurrency.LocalCurrencyCode is not null)
+            {
+                exchangeRates = new();
+                for (var yearIterator = budgetStartYear - 1; yearIterator <= this.budgetStartYear + 1; yearIterator++)
+                {
+                    ExchangeRate xR = new();
+                    if (budgetCurrency.DocumentCurrencyCode != budgetCurrency.LocalCurrencyCode)
+                    {
+                        xR = await ExchangeRateService!.GetByCurrencyPairYearAsync(budgetCurrency.DocumentCurrencyCode, budgetCurrency.LocalCurrencyCode, yearIterator);
+                        exchangeRates.Add(xR);
+                        if (yearIterator == budgetStartYear - 1) xRDL0 = xR.ExchangeValue;
+                        if (yearIterator == budgetStartYear) xRDL1 = xR.ExchangeValue;
+                        if (yearIterator == budgetStartYear + 1) xRDL2 = xR.ExchangeValue;
+                    }
+                    else
+                    {
+                        xRDL0 = 1;
+                        xRDL1 = 1;
+                        xRDL2 = 1;
+                    }
+                    if (budgetCurrency.DocumentCurrencyCode != "EUR" && budgetCurrency.LocalCurrencyCode != "EUR")
+                    {
+                        xR = await ExchangeRateService!.GetByCurrencyPairYearAsync(budgetCurrency.DocumentCurrencyCode, "EUR", yearIterator);
+                        exchangeRates.Add(xR);
+                        if (yearIterator == budgetStartYear - 1) xRDE0 = xR.ExchangeValue;
+                        if (yearIterator == budgetStartYear) xRDE1 = xR.ExchangeValue;
+                        if (yearIterator == budgetStartYear + 1) xRDE2 = xR.ExchangeValue;
+                    }
+                    else
+                    {
+                        xRDE0 = 1;
+                        xRDE1 = 1;
+                        xRDE2 = 1;
+                    }
+                }
+            }
+        }
+}
+<style> 
+    .e-active { 
+        background-color: greenyellow; 
+    } 
+  
+    .e-inactive { 
+        /*background-color: lightcoral; */
+        display: none
+    } 
+    #forecast1DataGrid.e-grid .e-gridheader .e-columnheader,
+    #forecast2DataGrid.e-grid .e-gridheader .e-columnheader,
+    #forecast3DataGrid.e-grid .e-gridheader .e-columnheader
+    {
+        display: none;
+    }
+</style>

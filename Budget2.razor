@@ -1,0 +1,75 @@
+@page "/budget2"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Models
+
+<PageTitle>Budget Details</PageTitle>
+
+<AuthorizeView Roles="Super user">
+    <Authorized>
+        <div class="row">
+            <h4 class="bg-dark bg-gradient text-white p-2 text-center rounded">Budget Details</h4>
+        </div>
+        <div class="row">
+            <div class="col-3">
+                <BudgetSelect SelectedCustomer = "@CustomerProvided" 
+                              SelectedArticle = "@ArticleProvided"
+                              SelectedBudgetCurrency = "@BudgetCurrencyProvided"
+                               />
+            </div>
+            <div class="col-5">
+                <BudgetCurrencies SuppliedBudgetCurrency = "@ProvidedBudgetCurrency" />
+            </div>
+            <div class="col">
+                <BudgetCustomerFetch SuppliedCustomer = "@ProvidedCustomer" />
+                <BudgetArticleFetch  SuppliedArticle = "@ProvidedArticle" />
+            </div>
+        </div>
+        <hr />
+        <div class="row p-3">
+            <div class="col-4">
+                <BudgetHistoricData  />
+            </div>
+            <div class="col-4">
+                <BudgetForcastData  />
+            </div>
+            <div class="col-4">
+                <BudgetYear1Calculate />
+            </div>
+        </div>
+        <div class="row p-3">
+            <div class="col-8"></div>
+            <div class="col-4">
+                <BudgetYear2Calculate  />
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <em class="text-white bg-danger bg-gradient p-2 text-center rounded">Please login to access data.</em>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code
+{
+    private ArticleFinal? ProvidedArticle;
+    private void ArticleProvided(ArticleFinal? _ProvidedArticle)
+    {
+        ProvidedArticle = _ProvidedArticle;
+    }
+    private CustomerFinal? ProvidedCustomer;
+    private void CustomerProvided(CustomerFinal? _ProvidedCustomer)
+    {
+        ProvidedCustomer = _ProvidedCustomer;
+    }
+    private BudgetCurrency? ProvidedBudgetCurrency;
+    private void BudgetCurrencyProvided(BudgetCurrency? _ProvidedBudgetCurrency)
+    {
+        ProvidedBudgetCurrency = _ProvidedBudgetCurrency;
+    }
+    private YearlyLock? ProvidedYearLock;
+    private void YearlyLockProvided(YearlyLock? _ProvidedYearLock)
+    {
+        ProvidedYearLock = _ProvidedYearLock;
+    }
+}

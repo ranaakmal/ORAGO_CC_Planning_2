@@ -1,0 +1,85 @@
+@using ORAGO_CC_Planning.Data
+@using ORAGO_CC_Planning.Models
+
+@inject AuthenticationStateProvider authenticationStateProvider
+
+@inject IBudgetEntryRepository BudgetEntryService
+@inject IArticleFinalRepository ArticleService
+@inject ICustomerFinalRepository CustomerService
+@inject IBudgetCurrencyRepository BudgetCurrencyService
+@inject NavigationManager UriHelper
+<div class="row">
+    <div class="col-md-12">
+        @if (LatestArticle is not null)
+        {
+            <SfCard style="height: 280px;"  @onclick="( () => selectRecentBudgetEntry(LatestArticle.Id))">
+                <CardStacked>
+                        <h2 class="lead text-center">Currently working on</h2>
+                        <div class="row" style="margin-left: 35px;">
+                            <div class="col-4"><b>Article Number : </b></div>
+                            <div class="col">@LatestArticle.ItemNo</div>
+                        </div>
+                        <div class="row" style="margin-left: 35px;">
+                            <div class="col-4"><b>Description : </b></div>
+                            <div class="col">@LatestArticle.ItemDescription</div>
+                        </div>
+                        <div class="row" style="margin-left: 35px;">
+                            <div class="col-4"><b>Customer : </b></div>
+                            <div class="col">@LatestArticleCustomer?.BpName</div>
+                        </div>
+                        <div class="row" style="margin-left: 35px;">
+                            <div class="col-4"><b>Status : </b></div>
+                            <div class="col">
+                                @if (LatestArticle is not null && LatestArticle.Id != 0 && LatestArticleBudgetCurrency is not null &&
+                                LatestArticleBudgetCurrency.Id != 0)
+                                {
+                                    if (LatestArticleBudgetCurrency.PlanningComplete)
+                                    {
+                                        <span class="oi oi-check text-success"> Complete</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="oi oi-pencil text-warning"> Incomplete</div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                </CardStacked>
+            </SfCard>
+        }
+        else
+        {
+            <em class="text-danger">No recent article</em>
+        }
+    </div>
+</div>
+
+@code
+{
+    private BudgetEntry? RecentBudgetEntry;
+    private ArticleFinal? LatestArticle;
+    private CustomerFinal? LatestArticleCustomer;
+    private BudgetCurrency? LatestArticleBudgetCurrency;
+    [Parameter]
+    public YearlyLock? TransYearlyLock { get; set; }
+    private List<CustomerFinal>? Customers;
+    private List<ArticleFinal>? Articles;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        @* Articles = await ArticleService.GetAllAsync();
+        Customers = await CustomerService.GetCustomerByLoggedInUser(authenticationStateProvider); *@
+        RecentBudgetEntry = await BudgetEntryService.GetLatestByLoggedInUser(authenticationStateProvider);
+        if (RecentBudgetEntry is not null) LatestArticle = await ArticleService.GetByIdAsync(RecentBudgetEntry.ArticleFinalID);
+        if (RecentBudgetEntry is not null) LatestArticleCustomer = await CustomerService.GetByIdAsync(RecentBudgetEntry.CustomerFinalID);
+        if (LatestArticle is not null && LatestArticle.Id != 0 && LatestArticleCustomer is not null && LatestArticleCustomer.Id != 0 && TransYearlyLock is not null)
+        {
+            LatestArticleBudgetCurrency = await BudgetCurrencyService.GetByYearVersionCustomerArticleAsync(System.DateTime.Now.Year + 1, LatestArticle, LatestArticleCustomer,
+            TransYearlyLock.Name);
+        }
+    }
+    public void selectRecentBudgetEntry(int Id)
+    {
+        UriHelper.NavigateTo($"budget/{LatestArticleCustomer?.Id}/{LatestArticle?.Id}");
+    }
+}
